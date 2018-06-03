@@ -1,0 +1,31 @@
+#!/usr/bin/python
+
+import string
+from collections import OrderedDict
+
+DATA_FNAME = "data"
+
+data = OrderedDict()
+
+def read_data(fname):
+	with open(fname) as fh:
+		raw = fh.readlines()
+	raw = map(lambda l: l.split('#')[0], raw) # remove comments
+	raw = map(string.strip, raw)
+	raw = filter(bool, raw) # remove empty lines
+	data = OrderedDict()
+	for line in raw:
+		goal, amount = line.split()
+		data[goal] = int(amount)
+	return data
+
+def update_total(new_total):
+	pass
+
+def main():
+	global data
+	data = read_data(DATA_FNAME)
+
+if __name__ == "__main__":
+	main()
+
