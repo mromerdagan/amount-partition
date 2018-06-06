@@ -5,26 +5,63 @@ from collections import OrderedDict
 
 DATA_FNAME = "data"
 
-data = OrderedDict()
+class FinPartition(object):
+	def __init__(self, data_fpath):
+		self.data_fpath = data_fpath
+		self.data = self.read_data(data_fpath)
 
-def read_data(fname):
-	with open(fname) as fh:
-		raw = fh.readlines()
-	raw = map(lambda l: l.split('#')[0], raw) # remove comments
-	raw = map(string.strip, raw)
-	raw = filter(bool, raw) # remove empty lines
-	data = OrderedDict()
-	for line in raw:
-		goal, amount = line.split()
-		data[goal] = int(amount)
-	return data
+	@staticmethod
+	def read_data(fname):
+		with open(fname) as fh:
+			raw = fh.readlines()
+		raw = map(lambda l: l.split('#')[0], raw) # remove comments
+		raw = map(string.strip, raw)
+		raw = filter(bool, raw) # remove empty lines
+		data = OrderedDict()
+		for line in raw:
+			goal, amount = line.split()
+			data[goal] = int(amount)
+		return data
+	
+	def dump_data(self, fname=None):
+		if not(fname):
+			fname = self.data_fpath
+		raise NotImplementedError('not implemented yet')
 
-def update_total(new_total):
-	pass
+	def get_total(self):
+		amounts = [amount for goal, amount in self.data.items()]
+		return sum(amounts)
+	
+	def withdraw_goal(self, goal, amount=0):
+		""" Withdraw some or all amount of goal. Move it to 'free'
+		    If need to remove completely, use reset_free()
+		"""
+		if not(goal in self.data):
+			raise KeyError("Key '{}' is missing from database ('{}')".format(goal, self.data_fpath))
+
+		if not(amount):
+			amount = self.data[goal]
+		self.data[goal] -= amount
+		self.data['free'] += amount
+	
+	def add_to_goal(self, goal, amount):
+		if not(goal in self.data):
+			raise KeyError("Key '{}' is missing from database ('{}')".format(goal, self.data_fpath))
+		if amount > self.data['free']:
+			raise Exception("Trying to add amount larger than aviable at 'free'	(free={})".format(self.data['free']))
+
+		self.data['free'] -= amount
+		self.data[goal] += amount
+
+	def add_to_free(self, amount):
+		self.data['free'] += amount
+	
+	def reset_free(self):
+		self.data['free'] = 0
 
 def main():
-	global data
-	data = read_data(DATA_FNAME)
+	fp = FinPartition(DATA_FNAME)
+	print fp.get_total()
 
 if __name__ == "__main__":
 	main()
