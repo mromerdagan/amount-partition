@@ -2,10 +2,9 @@
 
 import shutil
 import string
-import tempfile
 from collections import OrderedDict
 
-DATA_FNAME = "data"
+DATA_FNAME = "/home/odagan/git/finance/partition-data/data"
 
 class FinPartition(object):
 	def __init__(self, data_fpath):
@@ -24,7 +23,7 @@ class FinPartition(object):
 			goal, amount = line.split()
 			data[goal] = int(amount)
 		return data
-	
+
 	def dump_data(self, fname=None):
 		if not(fname):
 			fname = self.data_fpath
@@ -37,9 +36,9 @@ class FinPartition(object):
 		shutil.move(t, fname)
 
 	def get_total(self):
-		amounts = [amount for goal, amount in self.data.items()]
+		amounts = [amount for _, amount in self.data.items()]
 		return sum(amounts)
-	
+
 	def withdraw_goal(self, goal, amount=0):
 		""" Withdraw some or all amount of goal. Move it to 'free'
 		    If need to remove completely, use reset_free()
@@ -51,7 +50,7 @@ class FinPartition(object):
 			amount = self.data[goal]
 		self.data[goal] -= amount
 		self.data['free'] += amount
-	
+
 	def add_to_goal(self, goal, amount):
 		if not(goal in self.data):
 			raise KeyError("Key '{}' is missing from database ('{}')".format(goal, self.data_fpath))
@@ -61,9 +60,9 @@ class FinPartition(object):
 		self.data['free'] -= amount
 		self.data[goal] += amount
 
-	def add_to_free(self, amount):
+	def deposit(self, amount):
 		self.data['free'] += amount
-	
+
 	def reset_free(self):
 		self.data['free'] = 0
 
@@ -73,4 +72,3 @@ def main():
 
 if __name__ == "__main__":
 	main()
-
