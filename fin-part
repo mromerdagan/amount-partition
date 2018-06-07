@@ -1,6 +1,8 @@
 #!/usr/bin/python
 
+import shutil
 import string
+import tempfile
 from collections import OrderedDict
 
 DATA_FNAME = "data"
@@ -26,7 +28,13 @@ class FinPartition(object):
 	def dump_data(self, fname=None):
 		if not(fname):
 			fname = self.data_fpath
-		raise NotImplementedError('not implemented yet')
+		t = fname + '.new'
+		with open(t, 'w') as fh:
+			for goal in self.data:
+				line = "{:<20} {}\n".format(goal, self.data[goal])
+				fh.write(line)
+
+		shutil.move(t, fname)
 
 	def get_total(self):
 		amounts = [amount for goal, amount in self.data.items()]
