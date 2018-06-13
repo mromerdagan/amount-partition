@@ -1,7 +1,6 @@
 #!/usr/bin/python
 
 import shutil
-import string
 from collections import OrderedDict
 
 DATA_FNAME = "/home/odagan/git/finance/partition-data/data"
@@ -16,7 +15,7 @@ class FinPartition(object):
 		with open(fname) as fh:
 			raw = fh.readlines()
 		raw = map(lambda l: l.split('#')[0], raw) # remove comments
-		raw = map(string.strip, raw)
+		raw = map(str.strip, raw)
 		raw = filter(bool, raw) # remove empty lines
 		data = OrderedDict()
 		for line in raw:
@@ -66,9 +65,6 @@ class FinPartition(object):
 	def reset_free(self):
 		self.data['free'] = 0
 
-def main():
-	fp = FinPartition(DATA_FNAME)
-	print fp.get_total()
-
 if __name__ == "__main__":
-	main()
+	fp = FinPartition(DATA_FNAME)
+	print(fp.get_total())
