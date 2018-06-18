@@ -3,7 +3,6 @@
 import shutil
 from collections import OrderedDict
 
-DATA_FNAME = "/home/odagan/git/finance/partition-data/data"
 
 class FinPartition(object):
 	def __init__(self, data_fpath):
@@ -66,5 +65,6 @@ class FinPartition(object):
 		self.data['free'] = 0
 
 if __name__ == "__main__":
+	DATA_FNAME = "/home/odagan/git/finance/partition-data/data"
 	fp = FinPartition(DATA_FNAME)
 	print(fp.get_total())
