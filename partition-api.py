@@ -57,6 +57,11 @@ class FinPartition(object):
 
 		self.data['free'] -= amount
 		self.data[goal] += amount
+	
+	def new_goal(self, name):
+		if name in self.data:
+			raise ValueError("Key '{}' is already in database ('{}')".format(name, self.data_fpath))
+		self.data[name] = 0
 
 	def deposit(self, amount):
 		self.data['free'] += amount
