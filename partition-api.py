@@ -4,10 +4,10 @@ import shutil
 from collections import OrderedDict
 
 
-class FinPartition(object):
+class AmountPartition(object):
 	def __init__(self, data_fpath):
 		self.data_fpath = data_fpath
-		self.data = self.read_data(data_fpath)
+		self.partition = self.read_data(data_fpath)
 
 	@staticmethod
 	def read_data(fname):
@@ -16,60 +16,63 @@ class FinPartition(object):
 		raw = map(lambda l: l.split('#')[0], raw) # remove comments
 		raw = map(str.strip, raw)
 		raw = filter(bool, raw) # remove empty lines
-		data = OrderedDict()
+		partition = OrderedDict()
 		for line in raw:
-			goal, amount = line.split()
-			data[goal] = int(amount)
-		return data
+			box, size = line.split()
+			partition[box] = int(size)
+		return partition
 
 	def dump_data(self, fname=None):
 		if not(fname):
 			fname = self.data_fpath
 		t = fname + '.new'
 		with open(t, 'w') as fh:
-			for goal in self.data:
-				line = "{:<20} {}\n".format(goal, self.data[goal])
+			for box in self.partition:
+				line = "{:<20} {}\n".format(box, self.partition[box])
 				fh.write(line)
 
 		shutil.move(t, fname)
 
 	def get_total(self):
-		amounts = [amount for _, amount in self.data.items()]
+		amounts = [amount for _, amount in self.partition.items()]
 		return sum(amounts)
 
-	def withdraw_goal(self, goal, amount=0):
-		""" Withdraw some or all amount of goal. Move it to 'free'
+	def reduce_amount(self, box, amount=0):
+		""" Withdraw some or all amount of box. Move it to 'free'
 		    If need to remove completely, use reset_free()
 		"""
-		if not(goal in self.data):
-			raise KeyError("Key '{}' is missing from database ('{}')".format(goal, self.data_fpath))
+		if not(box in self.partition):
+			raise KeyError("Key '{}' is missing from partition (defined at '{}')".format(box, self.data_fpath))
 
 		if not(amount):
-			amount = self.data[goal]
-		self.data[goal] -= amount
-		self.data['free'] += amount
+			amount = self.partition[box]
+		newval = self.partition[box] - amount
+		if newval < 0:
+			raise ValueError('Box values must be greater or equal to 0 (after reduction got: {})'.format(newval))
+		self.partition[box] = newval
+		self.partition['free'] += amount
 
-	def add_to_goal(self, goal, amount):
-		if not(goal in self.data):
-			raise KeyError("Key '{}' is missing from database ('{}')".format(goal, self.data_fpath))
-		if amount > self.data['free']:
-			raise Exception("Trying to add amount larger than aviable at 'free'	(free={})".format(self.data['free']))
+	def add_amount(self, box, amount):
+		if not(box in self.partition):
+			raise KeyError("Key '{}' is missing from database ('{}')".format(box, self.data_fpath))
+		if amount > self.partition['free']:
+			raise ValueError("Trying to add amount larger than aviable at 'free' (free={})".format(self.partition['free']))
 
-		self.data['free'] -= amount
-		self.data[goal] += amount
+		self.partition['free'] -= amount
+		self.partition[box] += amount
 	
-	def new_goal(self, name):
-		if name in self.data:
-			raise ValueError("Key '{}' is already in database ('{}')".format(name, self.data_fpath))
-		self.data[name] = 0
+	def new_box(self, box):
+		if box in self.partition:
+			raise ValueError("Key '{}' is already in database ('{}')".format(box, self.data_fpath))
+		self.partition[box] = 0
 
-	def deposit(self, amount):
-		self.data['free'] += amount
+	def increase_total_by(self, amount):
+		self.partition['free'] += amount
 
 	def reset_free(self):
-		self.data['free'] = 0
+		self.partition['free'] = 0
 
 if __name__ == "__main__":
 	DATA_FNAME = "/home/odagan/git/finance/partition-data/data"
-	fp = FinPartition(DATA_FNAME)
+	fp = AmountPartition(DATA_FNAME)
 	print(fp.get_total())
