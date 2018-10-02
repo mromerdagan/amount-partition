@@ -71,10 +71,12 @@ class AmountPartition(object):
 		self.partition['free'] -= amount
 		self.partition[box] += amount
 	
-	def new_box(self, box):
-		if box in self.partition:
-			raise ValueError("Key '{}' is already in database ('{}')".format(box, self.data_fpath))
-		self.partition[box] = 0
+	def new_box(self, boxname):
+		""" Creates new box named <boxname>
+		"""
+		if boxname in self.partition:
+			raise ValueError("Key '{}' is already in database ('{}')".format(boxname, self.data_fpath))
+		self.partition[boxname] = 0
 
 if __name__ == "__main__":
 	DATA_FNAME = "/home/odagan/git/finance/partition-data/data"
