@@ -22,6 +22,9 @@ class AmountPartition(object):
 			partition[box] = int(size)
 		return partition
 
+	def pretty_print(self):
+		print("\n".join(["{:<20} {}".format(box, self.partition[box]) for box in self.partition]))
+
 	def dump_data(self, fname=None):
 		if not(fname):
 			fname = self.data_fpath
