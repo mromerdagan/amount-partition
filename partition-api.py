@@ -22,6 +22,9 @@ class AmountPartition(object):
 			partition[box] = int(size)
 		return partition
 
+	def pprint(self):
+		self.pretty_print()
+
 	def pretty_print(self):
 		print("\n".join(["{:<20} {}".format(box, self.partition[box]) for box in self.partition]))
 
@@ -39,6 +42,11 @@ class AmountPartition(object):
 	def get_total(self):
 		amounts = [amount for _, amount in self.partition.items()]
 		return sum(amounts)
+
+	def deposit(self, amount):
+		""" Same as increase_total()
+		"""
+		self.increase_total(amount)
 
 	def increase_total(self, amount):
 		self.partition['free'] += amount
