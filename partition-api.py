@@ -3,7 +3,6 @@
 import shutil
 from collections import OrderedDict
 
-
 class AmountPartition(object):
 	def __init__(self, data_fpath):
 		self.data_fpath = data_fpath
