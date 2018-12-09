@@ -88,6 +88,14 @@ class AmountPartition(object):
 			raise ValueError("Key '{}' is already in database ('{}')".format(boxname, self.data_fpath))
 		self.partition[boxname] = 0
 
+	def remove_box(self, boxname):
+		""" Remove box named <boxname>, put amount in 'free'
+		"""
+		if not(boxname in self.partition):
+			raise ValueError("Key '{}' is missing from database ('{}')".format(boxname, self.data_fpath))
+		self.reduce_box(boxname)
+		del(self.partition[boxname])
+
 if __name__ == "__main__":
 	DATA_FNAME = "/home/odagan/git/finance/partition-data/data"
 	fp = AmountPartition(DATA_FNAME)
