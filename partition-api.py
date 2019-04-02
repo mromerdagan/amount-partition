@@ -12,9 +12,9 @@ class AmountPartition(object):
 	def read_data(fname):
 		with open(fname) as fh:
 			raw = fh.readlines()
-		raw = map(lambda l: l.split('#')[0], raw) # remove comments
-		raw = map(str.strip, raw)
-		raw = filter(bool, raw) # remove empty lines
+		raw = [l.split('#')[0] for l in raw] # remove comments
+		raw = [l.strip() for l in raw]
+		raw = [l for l in raw if l] # remove empty lines
 		partition = OrderedDict()
 		for line in raw:
 			box, size = line.split()
@@ -39,7 +39,7 @@ class AmountPartition(object):
 		shutil.move(t, fname)
 
 	def get_total(self):
-		amounts = [amount for _, amount in self.partition.items()]
+		amounts = [self.partition[boxname] for boxname in self.partition]
 		return sum(amounts)
 
 	def deposit(self, amount):
@@ -80,7 +80,7 @@ class AmountPartition(object):
 
 		self.partition['free'] -= amount
 		self.partition[box] += amount
-	
+
 	def new_box(self, boxname):
 		""" Creates new box named <boxname>
 		"""
