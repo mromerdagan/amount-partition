@@ -1,10 +1,20 @@
+
 from pathlib import Path
+from datetime import datetime
 from collections import OrderedDict
+
+def extract_lines(raw):
+	lines = raw.split('\n')
+	lines = [l.split('#')[0] for l in lines] # remove comments
+	lines = [l.strip() for l in lines]
+	lines = [l for l in lines if l] # remove empty lines
+	return lines
 
 class AmountPartition(object):
 	def __init__(self, db_dir):
 		self.db_dir = Path(db_dir)
 		self.partition_path = self.db_dir / 'partition'
+		self.goals_path = self.db_dir / 'goals'
 
 		if not(self.partition_path.exists()):
 			raise FileNotFoundError("DB 'partition' file missing (searched '{}')".format(\
@@ -13,17 +23,28 @@ class AmountPartition(object):
 
 	def setup(self):
 		self.read_partition()
+		self.read_goals()
 
 	def read_partition(self):
 		raw = self.partition_path.read_text()
-		lines = raw.split('\n')
-		lines = [l.split('#')[0] for l in lines] # remove comments
-		lines = [l.strip() for l in lines]
-		lines = [l for l in lines if l] # remove empty lines
+		lines = extract_lines(raw)
 		self.partition = OrderedDict()
 		for line in lines:
 			box, size = line.split()
 			self.partition[box] = int(size)
+
+	def read_goals(self):
+		self.goals = OrderedDict()
+		if not(self.goals_path.exists()):
+			return
+
+		raw = self.goals_path.read_text()
+		lines = extract_lines(raw)
+		for line in lines:
+			boxname, goal, due = line.split()
+			goal = int(goal)
+			due = datetime.strptime(due, '%Y-%m')
+			self.goals[boxname] = {'goal': goal, 'due': due}
 
 	def pprint(self):
 		self.pretty_print()
