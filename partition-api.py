@@ -157,6 +157,12 @@ class AmountPartition(object):
 			raise KeyError("Key '{}' is missing from database ('{}')".format(boxname, self.data_fpath))
 		self.reduce_box(boxname)
 		del(self.partition[boxname])
+
+		if boxname in self.goals:
+			del(self.goals[boxname])
+
+		if boxname in self.periodic:
+			del(self.periodic[boxname])
 	
 	def set_goal(self, boxname, goal, due):
 		if not(boxname in self.partition):
@@ -202,7 +208,7 @@ class AmountPartition(object):
 					boxname, self.data_fpath))
 			self.increase_box(boxname, suggestion[boxname])
 
-if __name__ == "__main__":
+if __name__ == "__main__": ## DEBUG
 	DB = "/home/odagan/git/finance/partition-data"
 	fp = AmountPartition(DB)
 	print(fp.get_total())
