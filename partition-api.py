@@ -1,25 +1,29 @@
-#!/usr/bin/python
-
-import shutil
+from pathlib import Path
 from collections import OrderedDict
 
 class AmountPartition(object):
-	def __init__(self, data_fpath):
-		self.data_fpath = data_fpath
-		self.partition = self.read_data(data_fpath)
+	def __init__(self, db_dir):
+		self.db_dir = Path(db_dir)
+		self.partition_path = self.db_dir / 'partition'
 
-	@staticmethod
-	def read_data(fname):
-		with open(fname) as fh:
-			raw = fh.readlines()
-		raw = [l.split('#')[0] for l in raw] # remove comments
-		raw = [l.strip() for l in raw]
-		raw = [l for l in raw if l] # remove empty lines
-		partition = OrderedDict()
-		for line in raw:
+		if not(self.partition_path.exists()):
+			raise FileNotFoundError("DB 'partition' file missing (searched '{}')".format(\
+					self.partition_path))
+		self.setup()
+
+	def setup(self):
+		self.read_partition()
+
+	def read_partition(self):
+		raw = self.partition_path.read_text()
+		lines = raw.split('\n')
+		lines = [l.split('#')[0] for l in lines] # remove comments
+		lines = [l.strip() for l in lines]
+		lines = [l for l in lines if l] # remove empty lines
+		self.partition = OrderedDict()
+		for line in lines:
 			box, size = line.split()
-			partition[box] = int(size)
-		return partition
+			self.partition[box] = int(size)
 
 	def pprint(self):
 		self.pretty_print()
@@ -27,24 +31,20 @@ class AmountPartition(object):
 	def pretty_print(self):
 		print("\n".join(["{:<20} {}".format(box, self.partition[box]) for box in self.partition]))
 
-	def dump_data(self, fname=None):
-		if not(fname):
-			fname = self.data_fpath
-		t = fname + '.new'
-		with open(t, 'w') as fh:
+	def dump_data(self):
+		t = self.db_dir / (self.partition_path.name + '.new')
+		with t.open('w') as fh:
 			for box in self.partition:
 				line = "{:<20} {}\n".format(box, self.partition[box])
 				fh.write(line)
-
-		shutil.move(t, fname)
+		t.replace(self.partition_path)
 
 	def get_total(self):
 		amounts = [self.partition[boxname] for boxname in self.partition]
 		return sum(amounts)
 
 	def deposit(self, amount):
-		""" Same as increase_total()
-		"""
+		""" Same as increase_total() """
 		self.increase_total(amount)
 
 	def increase_total(self, amount):
@@ -97,6 +97,6 @@ class AmountPartition(object):
 		del(self.partition[boxname])
 
 if __name__ == "__main__":
-	DATA_FNAME = "/home/odagan/git/finance/partition-data/data"
-	fp = AmountPartition(DATA_FNAME)
+	DB = "/home/odagan/git/finance/partition-data"
+	fp = AmountPartition(DB)
 	print(fp.get_total())
