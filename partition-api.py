@@ -108,6 +108,10 @@ class AmountPartition(object):
 	def increase_total(self, amount):
 		self.partition['free'] += amount
 
+	def withdraw(self, amount=0):
+		""" Same as reduce_total() """
+		self.reduce_total(amount)
+
 	def reduce_total(self, amount=0):
 		if not(amount):
 			self.partition['free'] = 0
