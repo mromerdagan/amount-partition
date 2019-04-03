@@ -1,4 +1,5 @@
 
+import math
 from pathlib import Path
 from datetime import datetime
 from collections import OrderedDict
@@ -55,10 +56,22 @@ class AmountPartition(object):
 	def dump_data(self):
 		t = self.db_dir / (self.partition_path.name + '.new')
 		with t.open('w') as fh:
-			for box in self.partition:
-				line = "{:<20} {}\n".format(box, self.partition[box])
+			for boxname in self.partition:
+				line = "{:<20} {}\n".format(boxname, self.partition[boxname])
 				fh.write(line)
 		t.replace(self.partition_path)
+
+		if self.goals:
+			t = self.db_dir / (self.goals_path.name + '.new')
+			with t.open('w') as fh:
+				for boxname in self.goals:
+					line = "{:<20} {:<15} {}\n".format(\
+							boxname, \
+							self.goals[boxname]['goal'], \
+							self.goals[boxname]['due'].strftime('%Y-%m') \
+							)
+					fh.write(line)
+			t.replace(self.goals_path)
 
 	def get_total(self):
 		amounts = [self.partition[boxname] for boxname in self.partition]
@@ -116,6 +129,37 @@ class AmountPartition(object):
 			raise ValueError("Key '{}' is missing from database ('{}')".format(boxname, self.data_fpath))
 		self.reduce_box(boxname)
 		del(self.partition[boxname])
+	
+	def set_goal(self, boxname, goal, due):
+		self.goals[boxname] = {'goal': goal, 'due': due}
+
+	def suggest_deposits(self, postpone=None):
+		suggestion = {}
+		now = datetime.now()
+		for boxname in self.goals:
+			if postpone and boxname in postpone:
+				continue
+			goal = self.goals[boxname]['goal']
+			due = self.goals[boxname]['due']
+			curr_amount = self.partition[boxname]
+			diff = due - now
+			months_left = math.ceil(diff.days / 30)
+			box_suggestion = (goal - curr_amount) / months_left
+			box_suggestion = int(box_suggestion)
+			suggestion[boxname] = box_suggestion
+		return suggestion
+
+	def apply_suggestion(self, suggestion):
+		suggestion_sum = sum([suggestion[box] for box in suggestion])
+		if suggestion_sum > self.partition['free']:
+			missing = suggestion_sum - self.partition['free']
+			raise ValueError("Cannot apply suggestion- missing {} in 'free'".format(\
+					missing))
+		for boxname in suggestion:
+			if boxname not in self.partition:
+				raise ValueError("Key '{}' is missing from database ('{}')".format(
+					boxname, self.data_fpath))
+			self.increase_box(boxname, suggestion[boxname])
 
 if __name__ == "__main__":
 	DB = "/home/odagan/git/finance/partition-data"
