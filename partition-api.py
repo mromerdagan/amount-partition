@@ -186,6 +186,7 @@ class AmountPartition(object):
 	def set_goal(self, boxname, goal, due):
 		if not(boxname in self.partition):
 			raise KeyError("Key '{}' is missing from database ('{}')".format(boxname, self.db_dir))
+		due = datetime.strptime(due, '%Y-%m')
 		self.goals[boxname] = {'goal': goal, 'due': due}
 
 	def set_periodic(self, boxname, periodic_amount):
