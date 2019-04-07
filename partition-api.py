@@ -33,8 +33,8 @@ class AmountPartition(object):
 		lines = extract_lines(raw)
 		self.partition = OrderedDict()
 		for line in lines:
-			box, size = line.split()
-			self.partition[box] = int(size)
+			boxname, size = line.split()
+			self.partition[boxname] = int(size)
 
 	def read_goals(self):
 		self.goals = OrderedDict()
@@ -64,7 +64,26 @@ class AmountPartition(object):
 		self.pretty_print()
 
 	def pretty_print(self):
-		print("\n".join(["{:<20} {}".format(box, self.partition[box]) for box in self.partition]))
+		print("Partition:")
+		print("==========")
+		print("\n".join(["{:<20} {}".format(boxname, self.partition[boxname]) for boxname in self.partition]))
+		print()
+		print("Total: ", self.get_total())
+		print()
+		print("Goals:")
+		print("=======")
+		print("\n".join(["{:<20} {:<10} {}".format(\
+				boxname, \
+				self.goals[boxname]['goal'], \
+				self.goals[boxname]['due'].strftime('%Y-%m'), \
+				) 
+				for boxname in self.goals]))
+		print()
+		print("Periodic deposits:")
+		print("==================")
+		print("\n".join(["{:<20} {}".format(boxname, self.periodic[boxname]) for boxname in self.periodic]))
+
+
 
 	def dump_data(self):
 		t = self.db_dir / (self.partition_path.name + '.new')
@@ -120,28 +139,28 @@ class AmountPartition(object):
 				raise ValueError("'free' box must be greater or equal to 0 (max reduction: {})".format(self.partition['free']))
 			self.partition['free'] -= amount
 
-	def reduce_box(self, box, amount=0):
+	def reduce_box(self, boxname, amount=0):
 		""" Withdraw some or all amount of box. Move it to 'free'
 		    If need to remove completely, use reset_free()
 		"""
-		if not(box in self.partition):
-			raise KeyError("Key '{}' is missing from partition (defined at '{}')".format(box, self.data_fpath))
+		if not(boxname in self.partition):
+			raise KeyError("Key '{}' is missing from partition (defined at '{}')".format(boxname, self.data_fpath))
 		if not(amount):
-			amount = self.partition[box]
+			amount = self.partition[boxname]
 
-		if amount > self.partition[box]:
-			raise ValueError('Box values must be greater or equal to 0 (max reduction {})'.format(self.partition[box]))
-		self.partition[box] -= amount
+		if amount > self.partition[boxname]:
+			raise ValueError('Box values must be greater or equal to 0 (max reduction {})'.format(self.partition[boxname]))
+		self.partition[boxname] -= amount
 		self.partition['free'] += amount
 
-	def increase_box(self, box, amount):
-		if not(box in self.partition):
-			raise KeyError("Key '{}' is missing from database ('{}')".format(box, self.data_fpath))
+	def increase_box(self, boxname, amount):
+		if not(boxname in self.partition):
+			raise KeyError("Key '{}' is missing from database ('{}')".format(boxname, self.data_fpath))
 		if amount > self.partition['free']:
 			raise ValueError("Trying to add amount larger than aviable at 'free' (free={})".format(self.partition['free']))
 
 		self.partition['free'] -= amount
-		self.partition[box] += amount
+		self.partition[boxname] += amount
 
 	def new_box(self, boxname):
 		""" Creates new box named <boxname>
@@ -197,7 +216,7 @@ class AmountPartition(object):
 		return suggestion
 
 	def apply_suggestion(self, suggestion):
-		suggestion_sum = sum([suggestion[box] for box in suggestion])
+		suggestion_sum = sum([suggestion[boxname] for boxname in suggestion])
 		if suggestion_sum > self.partition['free']:
 			missing = suggestion_sum - self.partition['free']
 			raise ValueError("Cannot apply suggestion- missing {} in 'free'".format(\
