@@ -208,11 +208,12 @@ class AmountPartition(object):
 			raise KeyError("Key '{}' is missing from database ('{}')".format(boxname, self.db_dir))
 		self.periodic[boxname] = periodic_amount
 
-	def suggest_deposits(self, postpone=None):
+	def suggest_deposits(self, skip=''):
 		suggestion = {}
 		now = datetime.now()
+		skip = skip.split(',')
 		for boxname in self.goals:
-			if postpone and boxname in postpone:
+			if boxname in skip:
 				continue
 			goal = self.goals[boxname]['goal']
 			due = self.goals[boxname]['due']
@@ -227,6 +228,8 @@ class AmountPartition(object):
 			if boxname in suggestion:
 				raise KeyError("Key '{}' appears in 'periodic' as well as in 'goals'".format(\
 						boxname))
+			if boxname in skip:
+				continue
 			suggestion[boxname] = self.periodic[boxname]
 		return suggestion
 
