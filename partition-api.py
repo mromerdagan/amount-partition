@@ -183,6 +183,20 @@ class AmountPartition(object):
 		if boxname in self.periodic:
 			del(self.periodic[boxname])
 	
+	def remove_goal(self, boxname):
+		""" Remove 'boxname' from goals
+		"""
+		if not(boxname in self.goals):
+			raise KeyError("Key '{}' is missing from goals ('{}')".format(boxname, self.goals_path))
+		del(self.goals[boxname])
+	
+	def remove_periodic(self, boxname):
+		""" Remove 'boxname' from periodic deposits
+		"""
+		if not(boxname in self.periodic):
+			raise KeyError("Key '{}' is missing from periodic deposits ('{}')".format(boxname, self.periodic_path))
+		del(self.periodic[boxname])
+
 	def set_goal(self, boxname, goal, due):
 		if not(boxname in self.partition):
 			raise KeyError("Key '{}' is missing from database ('{}')".format(boxname, self.db_dir))
