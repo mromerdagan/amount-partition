@@ -19,8 +19,8 @@ class AmountPartition(object):
 		self.periodic_path = self.db_dir / 'periodic'
 
 		if not(self.partition_path.exists()):
-			raise FileNotFoundError("DB 'partition' file missing (searched '{}')".format(\
-					self.partition_path))
+			raise FileNotFoundError(\
+					f"DB 'partition' file missing (searched '{self.partition_path}')")
 		self.setup()
 
 	def setup(self):
@@ -144,20 +144,20 @@ class AmountPartition(object):
 		    If need to remove completely, use reset_free()
 		"""
 		if not(boxname in self.partition):
-			raise KeyError("Key '{}' is missing from partition (defined at '{}')".format(boxname, self.data_fpath))
+			raise KeyError(f"Key '{boxname}' is missing from partition (defined at '{self.partition_path}')")
 		if not(amount):
 			amount = self.partition[boxname]
 
 		if amount > self.partition[boxname]:
-			raise ValueError('Box values must be greater or equal to 0 (max reduction {})'.format(self.partition[boxname]))
+			raise ValueError(f'Box values must be greater or equal to 0 (max reduction {self.partition[boxname]})')
 		self.partition[boxname] -= amount
 		self.partition['free'] += amount
 
 	def increase_box(self, boxname, amount):
 		if not(boxname in self.partition):
-			raise KeyError("Key '{}' is missing from database ('{}')".format(boxname, self.data_fpath))
+			raise KeyError(f"Key '{boxname}' is missing from database ('{self.partition_path}')")
 		if amount > self.partition['free']:
-			raise ValueError("Trying to add amount larger than aviable at 'free' (free={})".format(self.partition['free']))
+			raise ValueError(f"Trying to add amount larger than aviable at 'free' (free={self.partition['free']})")
 
 		self.partition['free'] -= amount
 		self.partition[boxname] += amount
@@ -166,14 +166,14 @@ class AmountPartition(object):
 		""" Creates new box named <boxname>
 		"""
 		if boxname in self.partition:
-			raise KeyError("Key '{}' is already in database ('{}')".format(boxname, self.data_fpath))
+			raise KeyError(f"Key '{boxname}' is already in database ('{self.partition_path}')")
 		self.partition[boxname] = 0
 
 	def remove_box(self, boxname):
 		""" Remove box named <boxname>, put amount in 'free'
 		"""
 		if not(boxname in self.partition):
-			raise KeyError("Key '{}' is missing from database ('{}')".format(boxname, self.data_fpath))
+			raise KeyError(f"Key '{boxname}' is missing from database ('{self.partition_path}')")
 		self.reduce_box(boxname)
 		del(self.partition[boxname])
 
@@ -187,25 +187,25 @@ class AmountPartition(object):
 		""" Remove 'boxname' from goals
 		"""
 		if not(boxname in self.goals):
-			raise KeyError("Key '{}' is missing from goals ('{}')".format(boxname, self.goals_path))
+			raise KeyError(f"Key '{boxname}' is missing from goals ('{self.goals_path}')")
 		del(self.goals[boxname])
 	
 	def remove_periodic(self, boxname):
 		""" Remove 'boxname' from periodic deposits
 		"""
 		if not(boxname in self.periodic):
-			raise KeyError("Key '{}' is missing from periodic deposits ('{}')".format(boxname, self.periodic_path))
+			raise KeyError(f"Key '{boxname}' is missing from periodic deposits ('{self.periodic_path}')")
 		del(self.periodic[boxname])
 
 	def set_goal(self, boxname, goal, due):
 		if not(boxname in self.partition):
-			raise KeyError("Key '{}' is missing from database ('{}')".format(boxname, self.db_dir))
+			raise KeyError(f"Key '{boxname}' is missing from database ('{self.db_dir}')")
 		due = datetime.strptime(due, '%Y-%m')
 		self.goals[boxname] = {'goal': goal, 'due': due}
 
 	def set_periodic(self, boxname, periodic_amount):
 		if not(boxname in self.partition):
-			raise KeyError("Key '{}' is missing from database ('{}')".format(boxname, self.db_dir))
+			raise KeyError(f"Key '{boxname}' is missing from database ('{self.db_dir}')")
 		self.periodic[boxname] = periodic_amount
 
 	def suggest_deposits(self, skip=''):
@@ -226,8 +226,7 @@ class AmountPartition(object):
 
 		for boxname in self.periodic:
 			if boxname in suggestion:
-				raise KeyError("Key '{}' appears in 'periodic' as well as in 'goals'".format(\
-						boxname))
+				raise KeyError(f"Key '{boxname}' appears in 'periodic' as well as in 'goals'")
 			if boxname in skip:
 				continue
 			suggestion[boxname] = self.periodic[boxname]
@@ -237,12 +236,10 @@ class AmountPartition(object):
 		suggestion_sum = sum([suggestion[boxname] for boxname in suggestion])
 		if suggestion_sum > self.partition['free']:
 			missing = suggestion_sum - self.partition['free']
-			raise ValueError("Cannot apply suggestion- missing {} in 'free'".format(\
-					missing))
+			raise ValueError(f"Cannot apply suggestion- missing {missing} in 'free'")
 		for boxname in suggestion:
 			if boxname not in self.partition:
-				raise KeyError("Key '{}' is missing from database ('{}')".format(
-					boxname, self.data_fpath))
+				raise KeyError(f"Key '{boxname}' is missing from database ('{self.partition_path}')")
 			self.increase_box(boxname, suggestion[boxname])
 
 if __name__ == "__main__": ## DEBUG
