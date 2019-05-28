@@ -1,0 +1,110 @@
+#!/usr/bin/python
+"""finance-plot
+Usage:
+	finance-plot holdings
+"""
+import sys
+import re
+from docopt import docopt, DocoptExit
+from pathlib import Path
+from collections import defaultdict
+from itertools import cycle
+
+from bokeh.core.properties import value
+from bokeh.io import show, output_file
+from bokeh.plotting import figure
+import bokeh.palettes
+
+import git
+
+try:
+	arguments = docopt(__doc__)
+except DocoptExit:
+	print(__doc__)
+	sys.exit()
+
+def read_holdings():
+	months = git.get_tags()
+	months = [m for m in months if re.match('\d\d/\d\d', m)]
+
+	holdings = []
+	data = defaultdict(list)
+	data['months'] = months
+	for i, month in enumerate(months):
+		git.git_cmd(f'checkout {month}')
+		holdingsfile = Path('holdings')
+		if not(holdingsfile.exists()):
+			print(f"W: Path does not exists for '{month}'", file=sys.stderr)
+			continue
+		month_holdings = holdingsfile.read_text().split('\n')
+		month_holdings = [x.strip().split() for x in month_holdings]
+		month_holdings = [x for x in month_holdings if x]
+
+		for holding in month_holdings:
+			name, value = holding[0], holding[1]
+			value = float(value)
+			if not(name in holdings):
+				#print(f"D: padding 0 for {name}, i={i}")
+				holdings.append(name)
+				# Pad leading zeros for new holdings
+				for j in range(i):
+					data[name].append(0)
+			value = round((value / 1000), 1) # Keep results in thousands
+			data[name].append(value)
+
+		# Pad trailing zeros for removed holdings
+		for name in holdings:
+			if not(name in [x[0] for x in month_holdings]):
+				data[name].append(0)
+
+	return holdings, months, data
+
+def plot_holdings():
+	output_file("holdings.html")
+	holdings, months, data = read_holdings()
+	PALETTE = bokeh.palettes.Paired12
+	palette = cycle(PALETTE)
+	colors = [next(palette) for i in range(len(holdings))]
+
+	# Calculate total in each month
+	totals = [\
+			sum(x) for x in \
+				zip(*[value for key, value in data.items() if key != 'months'])
+			]
+	
+	# Use total to calculate y range
+	y_range = max(totals) + 50
+
+	TOOLTIPS = [
+		("name", "$name"),
+		("amount", "@$name"),
+		]
+	p = figure(\
+			x_range=months, \
+			y_range=(0,y_range), \
+			title="Holdings over time", \
+			toolbar_location=None, \
+			tools='hover', \
+			plot_height=800, \
+			plot_width=1000, \
+			tooltips=TOOLTIPS, \
+			)
+
+	p.vbar_stack(holdings, x='months', width=0.2, color=colors, source=data,
+		             	 legend=[value(x) for x in holdings])
+
+	p.x_range.range_padding = 0.1
+	p.xgrid.grid_line_color = None
+	p.axis.minor_tick_line_color = None
+	p.outline_line_color = None
+	p.legend.location = "top_left"
+	p.legend.orientation = "horizontal"
+
+	show(p)
+
+
+if __name__ == '__main__':
+	#print(arguments)
+	if arguments['holdings']:
+		plot_holdings()
+	sys.exit(0)
