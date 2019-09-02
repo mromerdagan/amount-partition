@@ -220,8 +220,13 @@ class AmountPartition(object):
 			curr_amount = self.partition[boxname]
 			diff = due - now
 			months_left = math.ceil(diff.days / 30)
-			box_suggestion = (goal - curr_amount) / months_left
+			if months_left > 0:
+				box_suggestion = (goal - curr_amount) / months_left
+			else: # months_left == 0
+				box_suggestion = goal - curr_amount
 			box_suggestion = int(box_suggestion)
+			if box_suggestion <= 0: # Goal is already reached
+				continue
 			suggestion[boxname] = box_suggestion
 
 		for boxname in self.periodic:
