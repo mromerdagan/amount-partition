@@ -61,9 +61,6 @@ class AmountPartition(object):
 			self.periodic[boxname] = int(p)
 
 	def pprint(self):
-		self.pretty_print()
-
-	def pretty_print(self):
 		print("Partition:")
 		print("==========")
 		print("\n".join(["{:<20} {}".format(boxname, self.partition[boxname]) for boxname in self.partition]))
@@ -82,7 +79,6 @@ class AmountPartition(object):
 		print("Periodic deposits:")
 		print("==================")
 		print("\n".join(["{:<20} {}".format(boxname, self.periodic[boxname]) for boxname in self.periodic]))
-
 
 
 	def dump_data(self):
@@ -121,17 +117,9 @@ class AmountPartition(object):
 		return sum(amounts)
 
 	def deposit(self, amount):
-		""" Same as increase_total() """
-		self.increase_total(amount)
-
-	def increase_total(self, amount):
 		self.partition['free'] += amount
 
 	def withdraw(self, amount=0):
-		""" Same as reduce_total() """
-		self.reduce_total(amount)
-
-	def reduce_total(self, amount=0):
 		if not(amount):
 			self.partition['free'] = 0
 		else:
@@ -183,6 +171,13 @@ class AmountPartition(object):
 		if boxname in self.periodic:
 			del(self.periodic[boxname])
 	
+	#### goal methods
+	def set_goal(self, boxname, goal, due):
+		if not(boxname in self.partition):
+			raise KeyError(f"Key '{boxname}' is missing from database ('{self.db_dir}')")
+		due = datetime.strptime(due, '%Y-%m')
+		self.goals[boxname] = {'goal': goal, 'due': due}
+
 	def remove_goal(self, boxname):
 		""" Remove 'boxname' from goals
 		"""
@@ -190,6 +185,12 @@ class AmountPartition(object):
 			raise KeyError(f"Key '{boxname}' is missing from goals ('{self.goals_path}')")
 		del(self.goals[boxname])
 	
+	#### peiodic methods
+	def set_periodic(self, boxname, periodic_amount):
+		if not(boxname in self.partition):
+			raise KeyError(f"Key '{boxname}' is missing from database ('{self.db_dir}')")
+		self.periodic[boxname] = periodic_amount
+
 	def remove_periodic(self, boxname):
 		""" Remove 'boxname' from periodic deposits
 		"""
@@ -197,17 +198,7 @@ class AmountPartition(object):
 			raise KeyError(f"Key '{boxname}' is missing from periodic deposits ('{self.periodic_path}')")
 		del(self.periodic[boxname])
 
-	def set_goal(self, boxname, goal, due):
-		if not(boxname in self.partition):
-			raise KeyError(f"Key '{boxname}' is missing from database ('{self.db_dir}')")
-		due = datetime.strptime(due, '%Y-%m')
-		self.goals[boxname] = {'goal': goal, 'due': due}
-
-	def set_periodic(self, boxname, periodic_amount):
-		if not(boxname in self.partition):
-			raise KeyError(f"Key '{boxname}' is missing from database ('{self.db_dir}')")
-		self.periodic[boxname] = periodic_amount
-
+	#### Suggestion methods
 	def suggest_deposits(self, skip=''):
 		suggestion = {}
 		now = datetime.now()
