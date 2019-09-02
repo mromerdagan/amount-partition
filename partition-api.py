@@ -243,6 +243,11 @@ class AmountPartition(object):
 				raise KeyError(f"Key '{boxname}' appears in 'periodic' as well as in 'goals'")
 			if boxname in skip:
 				continue
+			should_periodic = \
+					self.periodic[boxname].target == 0 or \
+					self.partition[boxname] <= self.periodic[boxname].target
+			if not(should_periodic):
+				continue
 			suggestion[boxname] = self.periodic[boxname].amount
 		return suggestion
 
