@@ -3,6 +3,12 @@ import math
 from pathlib import Path
 from datetime import datetime
 from collections import OrderedDict
+from dataclasses import dataclass
+
+@dataclass
+class PeriodicDeposit:
+	amount: int
+	target: int
 
 def extract_lines(raw):
 	lines = raw.split('\n')
@@ -57,8 +63,15 @@ class AmountPartition(object):
 		raw = self.periodic_path.read_text()
 		lines = extract_lines(raw)
 		for line in lines:
-			boxname, p = line.split()
-			self.periodic[boxname] = int(p)
+			try:
+				boxname, p, target = line.split()
+			except ValueError: # Backward compatibility
+				if len(line.split()) == 2:
+					boxname, p = line.split()
+					target = 0
+				else:
+					raise
+			self.periodic[boxname] = PeriodicDeposit(int(p), int(target))
 
 	def pprint(self):
 		print("Partition:")
@@ -78,7 +91,11 @@ class AmountPartition(object):
 		print()
 		print("Periodic deposits:")
 		print("==================")
-		print("\n".join(["{:<20} {}".format(boxname, self.periodic[boxname]) for boxname in self.periodic]))
+		print("\n".join(["{:<20} {:<10} {}".format(\
+				boxname, \
+				self.periodic[boxname].amount, \
+				self.periodic[boxname].target) \
+				for boxname in self.periodic]))
 
 
 	def dump_data(self):
@@ -105,9 +122,10 @@ class AmountPartition(object):
 			t = self.db_dir / (self.periodic_path.name + '.new')
 			with t.open('w') as fh:
 				for boxname in self.periodic:
-					line = "{:<20} {}\n".format(\
+					line = "{:<20} {:<10} {}\n".format(\
 							boxname, \
-							self.periodic[boxname], \
+							self.periodic[boxname].amount, \
+							self.periodic[boxname].target, \
 							)
 					fh.write(line)
 			t.replace(self.periodic_path)
@@ -186,10 +204,10 @@ class AmountPartition(object):
 		del(self.goals[boxname])
 	
 	#### peiodic methods
-	def set_periodic(self, boxname, periodic_amount):
+	def set_periodic(self, boxname, periodic_amount, target=0):
 		if not(boxname in self.partition):
 			raise KeyError(f"Key '{boxname}' is missing from database ('{self.db_dir}')")
-		self.periodic[boxname] = periodic_amount
+		self.periodic[boxname] = PeriodicDeposit(periodic_amount, target)
 
 	def remove_periodic(self, boxname):
 		""" Remove 'boxname' from periodic deposits
@@ -225,7 +243,7 @@ class AmountPartition(object):
 				raise KeyError(f"Key '{boxname}' appears in 'periodic' as well as in 'goals'")
 			if boxname in skip:
 				continue
-			suggestion[boxname] = self.periodic[boxname]
+			suggestion[boxname] = self.periodic[boxname].amount
 		return suggestion
 
 	def apply_suggestion(self, suggestion):
