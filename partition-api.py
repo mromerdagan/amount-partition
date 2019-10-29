@@ -1,4 +1,5 @@
 
+import os
 import math
 from pathlib import Path
 from datetime import datetime
@@ -262,6 +263,7 @@ class AmountPartition(object):
 			self.increase_box(boxname, suggestion[boxname])
 
 if __name__ == "__main__": ## DEBUG
-	DB = "/home/odagan/git/finance/partition-data"
+	homedir = os.environ['HOME']
+	DB = f"{homedir}/git/finance/partition-data"
 	fp = AmountPartition(DB)
 	print(fp.get_total())
