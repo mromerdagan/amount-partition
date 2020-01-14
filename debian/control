@@ -1,0 +1,25 @@
+Source: amount-partition
+Section: misc
+Priority: optional
+Maintainer: Omer Dagan <mr.omer.dagan@gmail.com>
+Build-Depends: debhelper (>= 10), 
+ dh-python, 
+ python-all, 
+ python3-all, 
+ python3-setuptools
+X-Python3-Version: >= 3.7
+Vcs-Git: https://github.com/mromerdagan/amount-partition.git
+
+Package: amount-partition
+Architecture: all
+Depends: ${shlibs:Depends}, ${misc:Depends},
+ python3-amount-partition (= ${binary:Version})
+Description: Client for amount partitioning
+
+Package: python3-amount-partition
+Architecture: all
+Depends: ${python3:Depends}, ${misc:Depends},
+ python3-docopt
+Description: Api for amount partitioning (Python 3)
+ This package installs the library for Python 3. The library is then used
+ by the application package
