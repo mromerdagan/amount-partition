@@ -25,26 +25,31 @@ class AmountPartition(object):
 		self.goals_path = self.db_dir / 'goals'
 		self.periodic_path = self.db_dir / 'periodic'
 
-		if not(self.partition_path.exists()):
-			raise FileNotFoundError(\
-					f"DB 'partition' file missing (searched '{self.partition_path}')")
 		self.setup()
 
 	def setup(self):
-		self.read_partition()
-		self.read_goals()
-		self.read_periodic()
+		self.partition = OrderedDict()
+		self.goals = OrderedDict()
+		self.periodic = OrderedDict()
+
+		if not(self.partition_path.exists()): # Initialize new partition
+			with self.partition_path.open('w') as fh:
+				fh.close()
+			self.new_box('free')
+			self.dump_data()
+		else: # Create new parition
+			self.read_partition()
+			self.read_goals()
+			self.read_periodic()
 
 	def read_partition(self):
 		raw = self.partition_path.read_text()
 		lines = extract_lines(raw)
-		self.partition = OrderedDict()
 		for line in lines:
 			boxname, size = line.split()
 			self.partition[boxname] = int(size)
 
 	def read_goals(self):
-		self.goals = OrderedDict()
 		if not(self.goals_path.exists()):
 			return
 
@@ -57,7 +62,6 @@ class AmountPartition(object):
 			self.goals[boxname] = {'goal': goal, 'due': due}
 
 	def read_periodic(self):
-		self.periodic = OrderedDict()
 		if not(self.periodic_path.exists()):
 			return
 

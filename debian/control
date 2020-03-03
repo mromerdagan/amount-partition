@@ -3,11 +3,11 @@ Section: misc
 Priority: optional
 Maintainer: Omer Dagan <mr.omer.dagan@gmail.com>
 Build-Depends: debhelper (>= 10), 
+ python3,
  dh-python, 
- python-all, 
  python3-all, 
  python3-setuptools
-X-Python3-Version: >= 3.7
+X-Python3-Version: >= 3.6
 Vcs-Git: https://github.com/mromerdagan/amount-partition.git
 
 Package: amount-partition

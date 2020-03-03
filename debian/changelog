@@ -1,3 +1,9 @@
+amount-partition (1.1) unstable; urgency=medium
+
+  * If class is being initialized on empty dir- create initial patition files
+
+ -- Omer Dagan <mr.omer.dagan@gmail.com>  Tue, 03 Mar 2020 09:34:21 +0200
+
 amount-partition (1.0) unstable; urgency=medium
 
   * Initial Release.
