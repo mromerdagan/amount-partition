@@ -25,12 +25,16 @@ class AmountPartition(object):
 		self.goals_path = self.db_dir / 'goals'
 		self.periodic_path = self.db_dir / 'periodic'
 
-		self.setup()
-
-	def setup(self):
+		# Initialize data structurs- will get values at setup()
 		self.partition = OrderedDict()
 		self.goals = OrderedDict()
 		self.periodic = OrderedDict()
+
+		self.setup()
+
+	def setup(self):
+		if self.partition or self.goals or self.periodic:
+			raise Exception('Setup has already been run before')
 
 		if not(self.partition_path.exists()): # Initialize new partition
 			with self.partition_path.open('w') as fh:
@@ -150,9 +154,9 @@ class AmountPartition(object):
 				raise ValueError("'free' box must be greater or equal to 0 (max reduction: {})".format(self.partition['free']))
 			self.partition['free'] -= amount
 
-	def reduce_box(self, boxname, amount=0):
-		""" Withdraw some or all amount of box. Move it to 'free'
-		    If need to remove completely, use reset_free()
+	def spend(self, boxname, amount=0):
+		""" Move some or all amount of box to 'free'
+		    If need to remove completely, use remove_box()
 		"""
 		if not(boxname in self.partition):
 			raise KeyError(f"Key '{boxname}' is missing from partition (defined at '{self.partition_path}')")
@@ -185,7 +189,7 @@ class AmountPartition(object):
 		"""
 		if not(boxname in self.partition):
 			raise KeyError(f"Key '{boxname}' is missing from database ('{self.partition_path}')")
-		self.reduce_box(boxname)
+		self.spend(boxname)
 		del(self.partition[boxname])
 
 		if boxname in self.goals:

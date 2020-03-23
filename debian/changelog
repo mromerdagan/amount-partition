@@ -1,3 +1,10 @@
+amount-partition (1.2) unstable; urgency=medium
+
+  * Make sure setup() is being run only once. Also:
+    - Change function name from reduce_box() to spend()
+
+ -- Omer Dagan <omerda@essence-grp.com>  Mon, 23 Mar 2020 16:41:11 +0200
+
 amount-partition (1.1) unstable; urgency=medium
 
   * If class is being initialized on empty dir- create initial patition files
