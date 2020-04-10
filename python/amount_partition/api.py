@@ -254,10 +254,17 @@ class AmountPartition(object):
 				continue
 			should_periodic = \
 					self.periodic[boxname].target == 0 or \
-					self.partition[boxname] <= self.periodic[boxname].target
+					self.partition[boxname] < self.periodic[boxname].target
 			if not(should_periodic):
 				continue
-			suggestion[boxname] = self.periodic[boxname].amount
+
+			# Calculate how much should be added in this deposit
+			if self.periodic[boxname].target == 0:
+			    suggestion[boxname] = self.periodic[boxname].amount
+			elif (self.partition[boxname] + self.periodic[boxname].amount) < self.periodic[boxname].target:
+			    suggestion[boxname] = self.periodic[boxname].amount
+			else: # Missing part is less than usual amount
+			    suggestion[boxname] = self.periodic[boxname].target - self.partition[boxname]
 		return suggestion
 
 	def apply_suggestion(self, suggestion):
