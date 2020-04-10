@@ -40,6 +40,7 @@ class AmountPartition(object):
 			with self.partition_path.open('w') as fh:
 				fh.close()
 			self.new_box('free')
+			self.new_box('spent-virtually')
 			self.dump_data()
 		else: # Create new parition
 			self.read_partition()
@@ -143,8 +144,11 @@ class AmountPartition(object):
 		amounts = [self.partition[boxname] for boxname in self.partition]
 		return sum(amounts)
 
-	def deposit(self, amount):
+	def deposit(self, amount, merge_with_virtual=True):
 		self.partition['free'] += amount
+		if merge_with_virtual:
+		    self.partition['free'] += self.partition['spent-virtually']
+		    self.partition['spent-virtually'] = 0
 
 	def withdraw(self, amount=0):
 		if not(amount):
@@ -154,8 +158,10 @@ class AmountPartition(object):
 				raise ValueError("'free' box must be greater or equal to 0 (max reduction: {})".format(self.partition['free']))
 			self.partition['free'] -= amount
 
-	def spend(self, boxname, amount=0):
-		""" Move some or all amount of box to 'free'
+	def spend(self, boxname, amount=0, virtual=False):
+		""" Use amount in box.
+		    If virtual == True, this means that the amount was not being withdrawn
+		    from the bank/fund/other, but only will effect future deposits.
 		    If need to remove completely, use remove_box()
 		"""
 		if not(boxname in self.partition):
@@ -165,8 +171,10 @@ class AmountPartition(object):
 
 		if amount > self.partition[boxname]:
 			raise ValueError(f'Box values must be greater or equal to 0 (max reduction {self.partition[boxname]})')
-		self.partition[boxname] -= amount
-		self.partition['free'] += amount
+
+		self.partition[boxname] -= amount # reduce amount from box
+		if virtual:
+		    self.partition['spent-virtually'] += amount
 
 	def increase_box(self, boxname, amount):
 		if not(boxname in self.partition):
