@@ -92,19 +92,23 @@ class AmountPartition(object):
 		print()
 		print("Goals:")
 		print("=======")
-		print("\n".join(["{:<20} {:<10} {}".format(\
+		print("\n".join(["{:<20} {:<10} {:<15} ({} monthly)".format(\
 				boxname, \
 				self.goals[boxname]['goal'], \
 				self.goals[boxname]['due'].strftime('%Y-%m'), \
+				self._goal_monthly_deposit(boxname), \
 				) 
 				for boxname in self.goals]))
 		print()
 		print("Periodic deposits:")
 		print("==================")
-		print("\n".join(["{:<20} {:<10} {}".format(\
+		print("\n".join(["{:<20} {:<10} {:<15} ({} months left)".format(\
 				boxname, \
 				self.periodic[boxname].amount, \
-				self.periodic[boxname].target) \
+				self.periodic[boxname].target, \
+				self._periodic_months_left(boxname) if
+                    self.periodic[boxname].target != 0 else '∞', \
+        		)
 				for boxname in self.periodic]))
 
 
@@ -220,6 +224,22 @@ class AmountPartition(object):
 			raise KeyError(f"Key '{boxname}' is missing from goals ('{self.goals_path}')")
 		del(self.goals[boxname])
 	
+	def _goal_monthly_deposit(self, boxname):
+		now = datetime.now()
+		goal = self.goals[boxname]['goal']
+		due = self.goals[boxname]['due']
+		curr_amount = self.partition[boxname]
+		diff = due - now
+		months_left = math.ceil(diff.days / 30)
+		if months_left > 0:
+			monthly = (goal - curr_amount) / months_left
+		else: # months_left == 0
+			monthly = goal - curr_amount
+		monthly = int(monthly)
+		if monthly < 0: # Goal is already reached
+			monthly = 0
+		return monthly
+	
 	#### peiodic methods
 	def set_periodic(self, boxname, periodic_amount, target=0):
 		if not(boxname in self.partition):
@@ -232,6 +252,13 @@ class AmountPartition(object):
 		if not(boxname in self.periodic):
 			raise KeyError(f"Key '{boxname}' is missing from periodic deposits ('{self.periodic_path}')")
 		del(self.periodic[boxname])
+	
+	def _periodic_months_left(self, boxname):
+	    missing = self.periodic[boxname].target - self.partition[boxname]
+	    left = missing / self.periodic[boxname].amount
+	    left = math.ceil(left)
+	    return left
+
 
 	#### Suggestion methods
 	def suggest_deposits(self, skip=''):
@@ -241,17 +268,8 @@ class AmountPartition(object):
 		for boxname in self.goals:
 			if boxname in skip:
 				continue
-			goal = self.goals[boxname]['goal']
-			due = self.goals[boxname]['due']
-			curr_amount = self.partition[boxname]
-			diff = due - now
-			months_left = math.ceil(diff.days / 30)
-			if months_left > 0:
-				box_suggestion = (goal - curr_amount) / months_left
-			else: # months_left == 0
-				box_suggestion = goal - curr_amount
-			box_suggestion = int(box_suggestion)
-			if box_suggestion <= 0: # Goal is already reached
+			box_suggestion = self._goal_monthly_deposit(boxname)
+			if box_suggestion == 0: # Goal is already reached
 				continue
 			suggestion[boxname] = box_suggestion
 

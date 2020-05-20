@@ -1,3 +1,12 @@
+amount-partition (1.5) unstable; urgency=medium
+
+  * Improve pprint to include monthly desposit estimation / months left
+
+    (desposit estimation for goals)
+    (months left for periodic deposits)
+
+ -- Omer Dagan <omerda@essence-grp.com>  Wed, 20 May 2020 11:38:27 +0300
+
 amount-partition (1.4) unstable; urgency=medium
 
   * Add 'spent-virtually' concept, see below:
