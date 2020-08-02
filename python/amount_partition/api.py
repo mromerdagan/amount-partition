@@ -188,6 +188,18 @@ class AmountPartition(object):
 
 		self.partition['free'] -= amount
 		self.partition[boxname] += amount
+	
+	def box_to_box(self, from_box, to_box, amount):
+		for boxname in [from_box, to_box]:
+			if not(boxname in self.partition):
+				raise KeyError(f"Key '{boxname}' is missing from database ('{self.partition_path}')")
+
+		if amount > self.partition[from_box]:
+			raise ValueError(f'Amount in source box not sufficiant (existing amount: {self.partition[from_box]})')
+
+		self.partition[from_box] -= amount
+		self.partition[to_box] += amount
+                
 
 	def new_box(self, boxname):
 		""" Creates new box named <boxname>

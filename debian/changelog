@@ -1,3 +1,10 @@
+amount-partition (1.6) unstable; urgency=medium
+
+  * New action in api: 'box-to-box'- as the name suggests, allow moving
+  	amoutns between boxes
+
+ -- Omer Dagan <omerda@essence-grp.com>  Sun, 02 Aug 2020 09:09:02 +0300
+
 amount-partition (1.5) unstable; urgency=medium
 
   * Improve pprint to include monthly desposit estimation / months left
