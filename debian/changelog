@@ -1,3 +1,17 @@
+amount-partition (1.7) unstable; urgency=medium
+
+  * Improve suggest_deposit method, see below
+
+    Add new param: additional_deposit(bool).
+    If called with 'True', this means that this suggestion is yet another one that comes
+    after the regular deposit.
+    This is important because the monthly deposit per goal needs to know how many months
+    are left to reach the goal- this number should reflect the number of deposits left.
+    Therefore if the regular deposit has taken place already, then there is one less
+    deposit left so we need to take this into account on the claculations
+
+ -- Omer Dagan <mr.omer.dagan@gmail.com>  Thu, 10 Sep 2020 10:26:52 +0300
+
 amount-partition (1.6) unstable; urgency=medium
 
   * New action in api: 'box-to-box'- as the name suggests, allow moving

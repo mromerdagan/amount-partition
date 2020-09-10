@@ -32,6 +32,9 @@ class AmountPartition(object):
 
 		self.setup()
 
+		# Used in multiple functions
+		self.now = datetime.now()
+
 	def setup(self):
 		if self.partition or self.goals or self.periodic:
 			raise Exception('Setup has already been run before')
@@ -92,11 +95,12 @@ class AmountPartition(object):
 		print()
 		print("Goals:")
 		print("=======")
+		after_deposit = self.now.day >= 10
 		print("\n".join(["{:<20} {:<10} {:<15} ({} monthly)".format(\
 				boxname, \
 				self.goals[boxname]['goal'], \
 				self.goals[boxname]['due'].strftime('%Y-%m'), \
-				self._goal_monthly_deposit(boxname), \
+				self.goal_monthly_deposit(boxname, after_deposit), \
 				) 
 				for boxname in self.goals]))
 		print()
@@ -236,13 +240,14 @@ class AmountPartition(object):
 			raise KeyError(f"Key '{boxname}' is missing from goals ('{self.goals_path}')")
 		del(self.goals[boxname])
 	
-	def _goal_monthly_deposit(self, boxname):
-		now = datetime.now()
+	def goal_monthly_deposit(self, boxname, after_monthly_deposit):
 		goal = self.goals[boxname]['goal']
 		due = self.goals[boxname]['due']
 		curr_amount = self.partition[boxname]
-		diff = due - now
+		diff = due - self.now
 		months_left = math.ceil(diff.days / 30)
+		if after_monthly_deposit:
+			months_left -= 1
 		if months_left > 0:
 			monthly = (goal - curr_amount) / months_left
 		else: # months_left == 0
@@ -273,14 +278,35 @@ class AmountPartition(object):
 
 
 	#### Suggestion methods
-	def suggest_deposits(self, skip=''):
+	def suggest_deposits(self, skip='', additional_suggestion=False):
+		""" Makes a suggestion for possible deposit that reflects the goals and periodic
+		amounts that was set by user. Following suggestion assures reaching the goals on
+		time.
+
+		Params:
+		skip (string):
+		    comma seperated boxnames that you want to avoid from putting into generated
+		    suggestion
+		additional_suggestion (bool):
+		    'False' if this is the suggestion is meant to be used for the regular monthly
+		    deposit (for example, on the salary pay day). If called with 'True' this means
+		    that this suggestion is yet another one that comes after the regular deposit.
+		    This is important because the monthly deposit per goal needs to know how many
+		    months are left to reach the goal- this number should reflect the number of
+		    deposits left. Therefore if the regular deposit has taken place already, then
+		    there is one less deposit left so we need to take this into account on the
+		    claculations
+
+		Return value: dictionary that maps boxname to amount that needs to be put in box.
+		This dictionary can be fed into the method "apply_suggestion" if there is
+		sufficient amount availabel in "free" and "virtual"
+		"""
 		suggestion = {}
-		now = datetime.now()
 		skip = skip.split(',')
 		for boxname in self.goals:
 			if boxname in skip:
 				continue
-			box_suggestion = self._goal_monthly_deposit(boxname)
+			box_suggestion = self.goal_monthly_deposit(boxname, additional_suggestion)
 			if box_suggestion == 0: # Goal is already reached
 				continue
 			suggestion[boxname] = box_suggestion
