@@ -226,6 +226,17 @@ class AmountPartition(object):
 		if boxname in self.periodic:
 			del(self.periodic[boxname])
 	
+	def new_loan(self, amount, due):
+		""" Self loan- add negative sum box, add goal set to 0 to due date
+		"""
+		boxname = 'self-loan'
+		if not(boxname in self.partition):
+			self.new_box(boxname)
+
+		self.partition[boxname] -= amount
+		self.partition['free'] += amount
+		self.set_goal(boxname, 0, due)
+	
 	#### goal methods
 	def set_goal(self, boxname, goal, due):
 		if not(boxname in self.partition):

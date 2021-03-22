@@ -1,3 +1,12 @@
+amount-partition (1.8) unstable; urgency=medium
+
+  * New feature: self loan
+    
+    If monthly return ability + remote golas with sufficient amount allow:
+    Now can take loan from self, return at convinient pace
+
+ -- Omer Dagan <omerda@essence-grp.com>  Mon, 22 Mar 2021 13:28:45 +0200
+
 amount-partition (1.7) unstable; urgency=medium
 
   * Improve suggest_deposit method, see below
