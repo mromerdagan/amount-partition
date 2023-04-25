@@ -2,7 +2,7 @@
 import os
 import math
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 from collections import OrderedDict
 from dataclasses import dataclass
 
@@ -111,8 +111,8 @@ class AmountPartition(object):
 				self.periodic[boxname].amount, \
 				self.periodic[boxname].target, \
 				self._periodic_months_left(boxname) if
-                    self.periodic[boxname].target != 0 else '∞', \
-        		)
+					self.periodic[boxname].target != 0 else '∞', \
+				)
 				for boxname in self.periodic]))
 
 
@@ -155,8 +155,8 @@ class AmountPartition(object):
 	def deposit(self, amount, merge_with_virtual=True):
 		self.partition['free'] += amount
 		if merge_with_virtual:
-		    self.partition['free'] += self.partition['spent-virtually']
-		    self.partition['spent-virtually'] = 0
+			self.partition['free'] += self.partition['spent-virtually']
+			self.partition['spent-virtually'] = 0
 
 	def withdraw(self, amount=0):
 		if not(amount):
@@ -168,9 +168,9 @@ class AmountPartition(object):
 
 	def spend(self, boxname, amount=0, virtual=False):
 		""" Use amount in box.
-		    If virtual == True, this means that the amount was not being withdrawn
-		    from the bank/fund/other, but only will effect future deposits.
-		    If need to remove completely, use remove_box()
+			If virtual == True, this means that the amount was not being withdrawn
+			from the bank/fund/other, but only will effect future deposits.
+			If need to remove completely, use remove_box()
 		"""
 		if not(boxname in self.partition):
 			raise KeyError(f"Key '{boxname}' is missing from partition (defined at '{self.partition_path}')")
@@ -182,7 +182,7 @@ class AmountPartition(object):
 
 		self.partition[boxname] -= amount # reduce amount from box
 		if virtual:
-		    self.partition['spent-virtually'] += amount
+			self.partition['spent-virtually'] += amount
 
 	def increase_box(self, boxname, amount):
 		if not(boxname in self.partition):
@@ -203,7 +203,7 @@ class AmountPartition(object):
 
 		self.partition[from_box] -= amount
 		self.partition[to_box] += amount
-                
+
 
 	def new_box(self, boxname):
 		""" Creates new box named <boxname>
@@ -282,10 +282,10 @@ class AmountPartition(object):
 		del(self.periodic[boxname])
 	
 	def _periodic_months_left(self, boxname):
-	    missing = self.periodic[boxname].target - self.partition[boxname]
-	    left = missing / self.periodic[boxname].amount
-	    left = math.ceil(left)
-	    return left
+		missing = self.periodic[boxname].target - self.partition[boxname]
+		left = missing / self.periodic[boxname].amount
+		left = math.ceil(left)
+		return left
 
 
 	#### Suggestion methods
@@ -296,17 +296,17 @@ class AmountPartition(object):
 
 		Params:
 		skip (string):
-		    comma seperated boxnames that you want to avoid from putting into generated
-		    suggestion
+			comma seperated boxnames that you want to avoid from putting into generated
+			suggestion
 		additional_suggestion (bool):
-		    'False' if this is the suggestion is meant to be used for the regular monthly
-		    deposit (for example, on the salary pay day). If called with 'True' this means
-		    that this suggestion is yet another one that comes after the regular deposit.
-		    This is important because the monthly deposit per goal needs to know how many
-		    months are left to reach the goal- this number should reflect the number of
-		    deposits left. Therefore if the regular deposit has taken place already, then
-		    there is one less deposit left so we need to take this into account on the
-		    claculations
+			'False' if this is the suggestion is meant to be used for the regular monthly
+			deposit (for example, on the salary pay day). If called with 'True' this means
+			that this suggestion is yet another one that comes after the regular deposit.
+			This is important because the monthly deposit per goal needs to know how many
+			months are left to reach the goal- this number should reflect the number of
+			deposits left. Therefore if the regular deposit has taken place already, then
+			there is one less deposit left so we need to take this into account on the
+			claculations
 
 		Return value: dictionary that maps boxname to amount that needs to be put in box.
 		This dictionary can be fed into the method "apply_suggestion" if there is
@@ -335,11 +335,11 @@ class AmountPartition(object):
 
 			# Calculate how much should be added in this deposit
 			if self.periodic[boxname].target == 0:
-			    suggestion[boxname] = self.periodic[boxname].amount
+				suggestion[boxname] = self.periodic[boxname].amount
 			elif (self.partition[boxname] + self.periodic[boxname].amount) < self.periodic[boxname].target:
-			    suggestion[boxname] = self.periodic[boxname].amount
+				suggestion[boxname] = self.periodic[boxname].amount
 			else: # Missing part is less than usual amount
-			    suggestion[boxname] = self.periodic[boxname].target - self.partition[boxname]
+				suggestion[boxname] = self.periodic[boxname].target - self.partition[boxname]
 		return suggestion
 
 	def apply_suggestion(self, suggestion):
@@ -351,9 +351,29 @@ class AmountPartition(object):
 			if boxname not in self.partition:
 				raise KeyError(f"Key '{boxname}' is missing from database ('{self.partition_path}')")
 			self.increase_box(boxname, suggestion[boxname])
+	
+	# Suggestion for locking money
+	def locked_amount(self, days_to_lock):
+		today = datetime.now()
+		touples = []
+		for x in self.goals:
+		    amount_got = self.partition[x]
+		    due_date = self.goals[x]['due']
+		    delta = due_date - today
+		    days_left = delta.days
+		    touples.append((amount_got, days_left))
+
+		sorted_touples = sorted(touples, key=lambda x: x[1])
+		locked_amount = 0
+		for amount_got, days_left in sorted_touples:
+			if days_left >= days_to_lock:
+				locked_amount += amount_got
+		return locked_amount
+
 
 if __name__ == "__main__": ## DEBUG
 	homedir = os.environ['HOME']
-	DB = f"{homedir}/git/finance/partition-data"
+	DB = f"{homedir}/git/finance/partition-bp"
 	fp = AmountPartition(DB)
-	print(fp.get_total())
+	#print(fp.get_total())
+	print(fp.locked_amount(1))
