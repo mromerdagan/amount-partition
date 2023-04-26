@@ -1,3 +1,9 @@
+amount-partition (1.9) unstable; urgency=medium
+
+  * Remove 'tree' from debian/rules (not in use)
+
+ -- Omer Dagan <mr.omer.dagan@gmail.com>  Wed, 26 Apr 2023 12:48:13 +0300
+
 amount-partition (1.8) unstable; urgency=medium
 
   * New feature: self loan
