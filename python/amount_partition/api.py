@@ -43,7 +43,7 @@ class AmountPartition(object):
 			with self.partition_path.open('w') as fh:
 				fh.close()
 			self.new_box('free')
-			self.new_box('spent-virtually')
+			self.new_box('credit')
 			self.dump_data()
 		else: # Create new parition
 			self.read_partition()
@@ -152,25 +152,16 @@ class AmountPartition(object):
 		amounts = [self.partition[boxname] for boxname in self.partition]
 		return sum(amounts)
 
-	def deposit(self, amount, merge_with_virtual=True):
-		self.partition['free'] += amount
-		if merge_with_virtual:
-			self.partition['free'] += self.partition['spent-virtually']
-			self.partition['spent-virtually'] = 0
+	def update_total(self, amount_change, monthly_update=True):
+		self.partition['free'] += amount_change
+		if monthly_update:
+			self.partition['free'] += self.partition['credit']
+			self.partition['credit'] = 0
 
-	def withdraw(self, amount=0):
-		if not(amount):
-			self.partition['free'] = 0
-		else:
-			if amount > self.partition['free']:
-				raise ValueError("'free' box must be greater or equal to 0 (max reduction: {})".format(self.partition['free']))
-			self.partition['free'] -= amount
-
-	def spend(self, boxname, amount=0, virtual=False):
-		""" Use amount in box.
-			If virtual == True, this means that the amount was not being withdrawn
-			from the bank/fund/other, but only will effect future deposits.
-			If need to remove completely, use remove_box()
+	def spend(self, boxname, amount=0, credit=False):
+		""" Unlock amount in box.
+			credit == True means that the effect will take place in monthly update amount
+			In this case, amount will be moved (unlocked) from box to speical box: credit
 		"""
 		if not(boxname in self.partition):
 			raise KeyError(f"Key '{boxname}' is missing from partition (defined at '{self.partition_path}')")
@@ -181,8 +172,8 @@ class AmountPartition(object):
 			raise ValueError(f'Box values must be greater or equal to 0 (max reduction {self.partition[boxname]})')
 
 		self.partition[boxname] -= amount # reduce amount from box
-		if virtual:
-			self.partition['spent-virtually'] += amount
+		if credit:
+			self.partition['credit'] += amount
 
 	def increase_box(self, boxname, amount):
 		if not(boxname in self.partition):
@@ -310,7 +301,7 @@ class AmountPartition(object):
 
 		Return value: dictionary that maps boxname to amount that needs to be put in box.
 		This dictionary can be fed into the method "apply_suggestion" if there is
-		sufficient amount availabel in "free" and "virtual"
+		sufficient amount availabel in "free" and "credit"
 		"""
 		suggestion = {}
 		skip = skip.split(',')
