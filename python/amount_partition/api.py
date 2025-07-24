@@ -25,7 +25,7 @@ class AmountPartition(object):
 		self.goals_path = self.db_dir / 'goals'
 		self.periodic_path = self.db_dir / 'periodic'
 
-		# Initialize data structurs- will get values at setup()
+		# Initialize data structures - will get values at setup()
 		self.partition = OrderedDict()
 		self.goals = OrderedDict()
 		self.periodic = OrderedDict()
@@ -45,7 +45,7 @@ class AmountPartition(object):
 			self.new_box('free')
 			self.new_box('spent-virtually')
 			self.dump_data()
-		else: # Create new parition
+		else: # Create new partition
 			self.read_partition()
 			self.read_goals()
 			self.read_periodic()
@@ -94,7 +94,7 @@ class AmountPartition(object):
 		print("Total: ", self.get_total())
 		print()
 		print("Goals:")
-		print("=======")
+		print("======")
 		after_deposit = self.now.day >= 10
 		print("\n".join(["{:<20} {:<10} {:<15} ({} monthly)".format(\
 				boxname, \
@@ -105,7 +105,7 @@ class AmountPartition(object):
 				for boxname in self.goals]))
 		print()
 		print("Periodic deposits:")
-		print("==================")
+		print("=================")
 		print("\n".join(["{:<20} {:<10} {:<15} ({} months left)".format(\
 				boxname, \
 				self.periodic[boxname].amount, \
@@ -188,7 +188,7 @@ class AmountPartition(object):
 		if not(boxname in self.partition):
 			raise KeyError(f"Key '{boxname}' is missing from database ('{self.partition_path}')")
 		if amount > self.partition['free']:
-			raise ValueError(f"Trying to add amount larger than aviable at 'free' (free={self.partition['free']})")
+			raise ValueError(f"Trying to add amount larger than available at 'free' (free={self.partition['free']})")
 
 		self.partition['free'] -= amount
 		self.partition[boxname] += amount
@@ -199,7 +199,7 @@ class AmountPartition(object):
 				raise KeyError(f"Key '{boxname}' is missing from database ('{self.partition_path}')")
 
 		if amount > self.partition[from_box]:
-			raise ValueError(f'Amount in source box not sufficiant (existing amount: {self.partition[from_box]})')
+			raise ValueError(f'Amount in source box not sufficient (existing amount: {self.partition[from_box]})')
 
 		self.partition[from_box] -= amount
 		self.partition[to_box] += amount
@@ -306,11 +306,11 @@ class AmountPartition(object):
 			months are left to reach the goal- this number should reflect the number of
 			deposits left. Therefore if the regular deposit has taken place already, then
 			there is one less deposit left so we need to take this into account on the
-			claculations
+		calculations
 
 		Return value: dictionary that maps boxname to amount that needs to be put in box.
 		This dictionary can be fed into the method "apply_suggestion" if there is
-		sufficient amount availabel in "free" and "virtual"
+		sufficient amount available in "free" and "virtual"
 		"""
 		suggestion = {}
 		skip = skip.split(',')
@@ -355,17 +355,17 @@ class AmountPartition(object):
 	# Suggestion for locking money
 	def locked_amount(self, days_to_lock):
 		today = datetime.now()
-		touples = []
+		tuples = []
 		for x in self.goals:
-		    amount_got = self.partition[x]
-		    due_date = self.goals[x]['due']
-		    delta = due_date - today
-		    days_left = delta.days
-		    touples.append((amount_got, days_left))
+			amount_got = self.partition[x]
+			due_date = self.goals[x]['due']
+			delta = due_date - today
+			days_left = delta.days
+			tuples.append((amount_got, days_left))
 
-		sorted_touples = sorted(touples, key=lambda x: x[1])
+		sorted_tuples = sorted(tuples, key=lambda x: x[1])
 		locked_amount = 0
-		for amount_got, days_left in sorted_touples:
+		for amount_got, days_left in sorted_tuples:
 			if days_left >= days_to_lock:
 				locked_amount += amount_got
 		return locked_amount
