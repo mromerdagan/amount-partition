@@ -3,12 +3,12 @@ import tempfile
 import shutil
 import os
 from pathlib import Path
-from amount_partition.api import BudgetManager
+from amount_partition.api import BudgetManagerApi
 
 class TestDeposit(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
-        self.db = BudgetManager(self.tempdir)
+        self.db = BudgetManagerApi(self.tempdir)
 
     def tearDown(self):
         shutil.rmtree(self.tempdir)
@@ -27,7 +27,7 @@ class TestDeposit(unittest.TestCase):
 class TestWithdraw(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
-        self.db = BudgetManager(self.tempdir)
+        self.db = BudgetManagerApi(self.tempdir)
         self.db.deposit(200)
 
     def tearDown(self):
@@ -44,7 +44,7 @@ class TestWithdraw(unittest.TestCase):
 class TestSpend(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
-        self.db = BudgetManager(self.tempdir)
+        self.db = BudgetManagerApi(self.tempdir)
         self.db.deposit(200)
         self.db.new_box('test')
         self.db.add_to_balance('test', 100)
@@ -68,7 +68,7 @@ class TestSpend(unittest.TestCase):
 class TestAddToBalance(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
-        self.db = BudgetManager(self.tempdir)
+        self.db = BudgetManagerApi(self.tempdir)
         self.db.deposit(200)
         self.db.new_box('test')
 
@@ -83,7 +83,7 @@ class TestAddToBalance(unittest.TestCase):
 class TestTransferBetweenBalances(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
-        self.db = BudgetManager(self.tempdir)
+        self.db = BudgetManagerApi(self.tempdir)
         self.db.deposit(200)
         self.db.new_box('a')
         self.db.new_box('b')
@@ -101,7 +101,7 @@ class TestTransferBetweenBalances(unittest.TestCase):
 class TestNewBoxRemoveBox(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
-        self.db = BudgetManager(self.tempdir)
+        self.db = BudgetManagerApi(self.tempdir)
 
     def tearDown(self):
         shutil.rmtree(self.tempdir)
@@ -120,7 +120,7 @@ class TestNewBoxRemoveBox(unittest.TestCase):
 class TestNewLoan(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
-        self.db = BudgetManager(self.tempdir)
+        self.db = BudgetManagerApi(self.tempdir)
 
     def tearDown(self):
         shutil.rmtree(self.tempdir)
@@ -135,7 +135,7 @@ class TestNewLoan(unittest.TestCase):
 class TestSetTarget(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
-        self.db = BudgetManager(self.tempdir)
+        self.db = BudgetManagerApi(self.tempdir)
         self.db.new_box('goalbox')
 
     def tearDown(self):
@@ -150,7 +150,7 @@ class TestSetTarget(unittest.TestCase):
 class TestSuggestDepositsApplySuggestion(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
-        self.db = BudgetManager(self.tempdir)
+        self.db = BudgetManagerApi(self.tempdir)
         self.db.deposit(1000)
         self.db.new_box('box1')
         self.db.set_target('box1', 600, '2030-01')

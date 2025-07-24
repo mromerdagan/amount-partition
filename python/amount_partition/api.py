@@ -9,7 +9,7 @@ from .models import Target, PeriodicDeposit
 DEPOSIT_DAY = 10  # Day of month after which deposit is considered done
 DAYS_IN_MONTH = 30  # Used for monthly calculations
 
-class BudgetManager(object):
+class BudgetManagerApi(object):
 	def __init__(self, db_dir: str) -> None:
 		"""Initialize AmountPartition with a database directory."""
 		self.db_dir = Path(db_dir)
@@ -242,7 +242,7 @@ class BudgetManager(object):
 			monthly = 0
 		return monthly
 	
-	#### peiodic methods
+	#### Recurring payments related methods
 	def set_recurring(self, boxname: str, periodic_amount: int, target: int = 0) -> None:
 		"""Set a recurring deposit for a balance, with an optional target amount."""
 		if not(boxname in self.balances):
@@ -353,6 +353,6 @@ class BudgetManager(object):
 if __name__ == "__main__": ## DEBUG
 	homedir = os.environ['HOME']
 	DB = f"{homedir}/git/finance/partition-bp"
-	fp = BudgetManager(DB)
+	fp = BudgetManagerApi(DB)
 	#print(fp.get_total())
 	print(fp.locked_amount(1))
