@@ -1,3 +1,5 @@
+DEPOSIT_DAY = 10  # Day of month after which deposit is considered done
+DAYS_IN_MONTH = 30  # Used for monthly calculations
 
 import os
 import math
@@ -95,7 +97,7 @@ class AmountPartition(object):
 		print()
 		print("Goals:")
 		print("======")
-		after_deposit = self.now.day >= 10
+		after_deposit = self.now.day >= DEPOSIT_DAY
 		print("\n".join(["{:<20} {:<10} {:<15} ({} monthly)".format(\
 				boxname, \
 				self.goals[boxname]['goal'], \
@@ -256,7 +258,7 @@ class AmountPartition(object):
 		due = self.goals[boxname]['due']
 		curr_amount = self.partition[boxname]
 		diff = due - self.now
-		months_left = math.ceil(diff.days / 30)
+		months_left = math.ceil(diff.days / DAYS_IN_MONTH)
 		if after_monthly_deposit:
 			months_left -= 1
 		if months_left > 0:
