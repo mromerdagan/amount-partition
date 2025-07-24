@@ -14,23 +14,25 @@ class PeriodicDeposit:
 	target: int
 
 def extract_lines(raw: str) -> list[str]:
+	"""Extracts non-empty, non-comment lines from a raw string."""
 	lines = raw.split('\n')
-	lines = [l.split('#')[0] for l in lines] # remove comments
+	lines = [l.split('#')[0] for l in lines]  # remove comments
 	lines = [l.strip() for l in lines]
-	lines = [l for l in lines if l] # remove empty lines
+	lines = [l for l in lines if l]  # remove empty lines
 	return lines
 
-class AmountPartition(object):
+class BudgetManager(object):
 	def __init__(self, db_dir: str) -> None:
+		"""Initialize AmountPartition with a database directory."""
 		self.db_dir = Path(db_dir)
 		self.partition_path = self.db_dir / 'partition'
 		self.goals_path = self.db_dir / 'goals'
 		self.periodic_path = self.db_dir / 'periodic'
 
 		# Initialize data structures - will get values at setup()
-		self.partition = OrderedDict()
-		self.goals = OrderedDict()
-		self.periodic = OrderedDict()
+		self.balances = OrderedDict()
+		self.targets = OrderedDict()
+		self.recurring = OrderedDict()
 
 		self.setup()
 
@@ -38,14 +40,15 @@ class AmountPartition(object):
 		self.now = datetime.now()
 
 	def setup(self) -> None:
-		if self.partition or self.goals or self.periodic:
-			raise RuntimeError('Setup has already been run before. The partition, goals, or periodic data structures are not empty. This likely indicates a logic error or repeated initialization.')
+		"""Set up partition, goals, and periodic data from files or initialize new ones."""
+		if self.balances or self.targets or self.recurring:
+			raise RuntimeError('Setup has already been run before. The balances, targets, or recurring data structures are not empty. This likely indicates a logic error or repeated initialization.')
 
-		if not(self.partition_path.exists()): # Initialize new partition
+		if not(self.partition_path.exists()): # Initialize new balances
 			with self.partition_path.open('w') as fh:
 				fh.close()
 			self.new_box('free')
-			self.new_box('spent-virtually')
+			self.new_box('credit-spent')
 			self.dump_data()
 		else: # Load existing partition
 			try:
@@ -56,16 +59,18 @@ class AmountPartition(object):
 				raise RuntimeError(f"Failed to read partition data from {self.db_dir}: {e}") from e
 
 	def read_partition(self) -> None:
+		"""Read balances data from file into self.balances."""
 		raw = self.partition_path.read_text()
 		lines = extract_lines(raw)
 		for line in lines:
 			try:
 				boxname, size = line.split()
-				self.partition[boxname] = int(size)
+				self.balances[boxname] = int(size)
 			except ValueError as e:
 				raise ValueError(f"Malformed line in partition file: '{line}'. Expected format: '<boxname> <size>'") from e
 
 	def read_goals(self) -> None:
+		"""Read targets data from file into self.targets."""
 		if not(self.goals_path.exists()):
 			return
 
@@ -76,11 +81,12 @@ class AmountPartition(object):
 				boxname, goal, due = line.split()
 				goal = int(goal)
 				due = datetime.strptime(due, '%Y-%m')
-				self.goals[boxname] = {'goal': goal, 'due': due}
+				self.targets[boxname] = {'goal': goal, 'due': due}
 			except ValueError as e:
 				raise ValueError(f"Malformed line in goals file: '{line}'. Expected format: '<boxname> <goal> <due YYYY-MM>'") from e
 
 	def read_periodic(self) -> None:
+		"""Read recurring deposit data from file into self.recurring."""
 		if not(self.periodic_path.exists()):
 			return
 
@@ -96,39 +102,41 @@ class AmountPartition(object):
 					target = 0
 				else:
 					raise ValueError(f"Malformed line in periodic file: '{line}'. Expected format: '<boxname> <amount> <target>' or '<boxname> <amount>'")
-			self.periodic[boxname] = PeriodicDeposit(int(p), int(target))
+			self.recurring[boxname] = PeriodicDeposit(int(p), int(target))
 
 	def pprint(self) -> None:
-		print("Partition:")
-		print("==========")
-		print("\n".join(["{:<20} {}".format(boxname, self.partition[boxname]) for boxname in self.partition]))
+		"""Pretty-print the current balances, targets, and recurring deposits."""
+		print("Balances:")
+		print("=========")
+		print("\n".join(["{:<20} {}".format(boxname, self.balances[boxname]) for boxname in self.balances]))
 		print()
 		print("Total: ", self.get_total())
 		print()
-		print("Goals:")
-		print("======")
+		print("Targets:")
+		print("========")
 		after_deposit = self.now.day >= DEPOSIT_DAY
 		print("\n".join(["{:<20} {:<10} {:<15} ({} monthly)".format(\
 				boxname, \
-				self.goals[boxname]['goal'], \
-				self.goals[boxname]['due'].strftime('%Y-%m'), \
-				self.goal_monthly_deposit(boxname, after_deposit), \
-				) 
-				for boxname in self.goals]))
+				self.targets[boxname]['goal'], \
+				self.targets[boxname]['due'].strftime('%Y-%m'), \
+				self.target_monthly_deposit(boxname, after_deposit), \
+				) \
+				for boxname in self.targets]))
 		print()
-		print("Periodic deposits:")
-		print("=================")
+		print("Recurring deposits:")
+		print("===================")
 		print("\n".join(["{:<20} {:<10} {:<15} ({} months left)".format(\
 				boxname, \
-				self.periodic[boxname].amount, \
-				self.periodic[boxname].target, \
+				self.recurring[boxname].amount, \
+				self.recurring[boxname].target, \
 				self._periodic_months_left(boxname) if
-					self.periodic[boxname].target != 0 else '∞', \
+					self.recurring[boxname].target != 0 else '∞', \
 				)
-				for boxname in self.periodic]))
+				for boxname in self.recurring]))
 
 
 	def dump_data(self) -> None:
+		"""Write current partition, goals, and periodic data to files."""
 		t = self.db_dir / (self.partition_path.name + '.new')
 		with t.open('w') as fh:
 			for boxname in self.partition:
@@ -161,112 +169,111 @@ class AmountPartition(object):
 			t.replace(self.periodic_path)
 
 	def get_total(self) -> int:
-		amounts = [self.partition[boxname] for boxname in self.partition]
+		"""Return the total sum of all balances."""
+		amounts = [self.balances[boxname] for boxname in self.balances]
 		return sum(amounts)
 
-	def deposit(self, amount: int, merge_with_virtual: bool = True) -> None:
-		self.partition['free'] += amount
-		if merge_with_virtual:
-			self.partition['free'] += self.partition['spent-virtually']
-			self.partition['spent-virtually'] = 0
+	def deposit(self, amount: int, merge_with_credit: bool = True) -> None:
+		"""Deposit an amount into 'free'. Optionally merge 'credit-spent'."""
+		self.balances['free'] += amount
+		if merge_with_credit:
+			self.balances['free'] += self.balances['credit-spent']
+			self.balances['credit-spent'] = 0
 
 	def withdraw(self, amount: int = 0) -> None:
+		"""Withdraw an amount from 'free'. If amount is 0, empty 'free'."""
 		if not(amount):
-			self.partition['free'] = 0
+			self.balances['free'] = 0
 		else:
-			if amount > self.partition['free']:
-				raise ValueError("'free' box must be greater or equal to 0 (max reduction: {})".format(self.partition['free']))
-			self.partition['free'] -= amount
+			if amount > self.balances['free']:
+				raise ValueError("'free' box must be greater or equal to 0 (max reduction: {})".format(self.balances['free']))
+			self.balances['free'] -= amount
 
-	def spend(self, boxname: str, amount: int = 0, virtual: bool = False) -> None:
-		""" Use amount in box.
-			If virtual == True, this means that the amount was not being withdrawn
-			from the bank/fund/other, but only will effect future deposits.
-			If need to remove completely, use remove_box()
-		"""
-		if not(boxname in self.partition):
-			raise KeyError(f"Key '{boxname}' is missing from partition (defined at '{self.partition_path}')")
+	def spend(self, boxname: str, amount: int = 0, use_credit: bool = False) -> None:
+		"""Spend an amount from a balance. If use_credit, add to 'credit-spent'."""
+		if not(boxname in self.balances):
+			raise KeyError(f"Key '{boxname}' is missing from balances (defined at '{self.partition_path}')")
 		if not(amount):
-			amount = self.partition[boxname]
+			amount = self.balances[boxname]
 
-		if amount > self.partition[boxname]:
-			raise ValueError(f'Box values must be greater or equal to 0 (max reduction {self.partition[boxname]})')
+		if amount > self.balances[boxname]:
+			raise ValueError(f'Balance values must be greater or equal to 0 (max reduction {self.balances[boxname]})')
 
-		self.partition[boxname] -= amount # reduce amount from box
-		if virtual:
-			self.partition['spent-virtually'] += amount
+		self.balances[boxname] -= amount # reduce amount from balance
+		if use_credit:
+			self.balances['credit-spent'] += amount
 
-	def increase_box(self, boxname: str, amount: int) -> None:
-		if not(boxname in self.partition):
+	def add_to_balance(self, boxname: str, amount: int) -> None:
+		"""Increase a balance by amount, decreasing 'free' by the same amount."""
+		if not(boxname in self.balances):
 			raise KeyError(f"Key '{boxname}' is missing from database ('{self.partition_path}')")
-		if amount > self.partition['free']:
-			raise ValueError(f"Trying to add amount larger than available at 'free' (free={self.partition['free']})")
+		if amount > self.balances['free']:
+			raise ValueError(f"Trying to add amount larger than available at 'free' (free={self.balances['free']})")
 
-		self.partition['free'] -= amount
-		self.partition[boxname] += amount
+		self.balances['free'] -= amount
+		self.balances[boxname] += amount
 	
-	def box_to_box(self, from_box: str, to_box: str, amount: int) -> None:
+	def transfer_between_balances(self, from_box: str, to_box: str, amount: int) -> None:
+		"""Transfer amount from one balance to another."""
 		for boxname in [from_box, to_box]:
-			if not(boxname in self.partition):
+			if not(boxname in self.balances):
 				raise KeyError(f"Key '{boxname}' is missing from database ('{self.partition_path}')")
 
-		if amount > self.partition[from_box]:
-			raise ValueError(f'Amount in source box not sufficient (existing amount: {self.partition[from_box]})')
+		if amount > self.balances[from_box]:
+			raise ValueError(f'Amount in source balance not sufficient (existing amount: {self.balances[from_box]})')
 
-		self.partition[from_box] -= amount
-		self.partition[to_box] += amount
+		self.balances[from_box] -= amount
+		self.balances[to_box] += amount
 
 
 	def new_box(self, boxname: str) -> None:
-		""" Creates new box named <boxname>
-		"""
-		if boxname in self.partition:
+		"""Create a new balance with the given name and zero value."""
+		if boxname in self.balances:
 			raise KeyError(f"Key '{boxname}' is already in database ('{self.partition_path}')")
-		self.partition[boxname] = 0
+		self.balances[boxname] = 0
 
 	def remove_box(self, boxname: str) -> None:
-		""" Remove box named <boxname>, put amount in 'free'
-		"""
-		if not(boxname in self.partition):
+		"""Remove a balance and transfer its amount to 'free'. Also remove related targets and recurring entries."""
+		if not(boxname in self.balances):
 			raise KeyError(f"Key '{boxname}' is missing from database ('{self.partition_path}')")
 		self.spend(boxname)
-		del(self.partition[boxname])
+		del(self.balances[boxname])
 
-		if boxname in self.goals:
-			del(self.goals[boxname])
+		if boxname in self.targets:
+			del(self.targets[boxname])
 
-		if boxname in self.periodic:
-			del(self.periodic[boxname])
+		if boxname in self.recurring:
+			del(self.recurring[boxname])
 	
 	def new_loan(self, amount: int, due: str) -> None:
-		""" Self loan- add negative sum box, add goal set to 0 to due date
-		"""
+		"""Create a self-loan balance with a negative amount and a target to repay by due date."""
 		boxname = 'self-loan'
-		if not(boxname in self.partition):
+		if not(boxname in self.balances):
 			self.new_box(boxname)
 
-		self.partition[boxname] -= amount
-		self.partition['free'] += amount
-		self.set_goal(boxname, 0, due)
+		self.balances[boxname] -= amount
+		self.balances['free'] += amount
+		self.set_target(boxname, 0, due)
 	
 	#### goal methods
-	def set_goal(self, boxname: str, goal: int, due: str) -> None:
-		if not(boxname in self.partition):
+	def set_target(self, boxname: str, goal: int, due: str) -> None:
+		"""Set a target amount and due date for a balance."""
+		if not(boxname in self.balances):
 			raise KeyError(f"Key '{boxname}' is missing from database ('{self.db_dir}')")
 		due = datetime.strptime(due, '%Y-%m')
-		self.goals[boxname] = {'goal': goal, 'due': due}
+		self.targets[boxname] = {'goal': goal, 'due': due}
 
-	def remove_goal(self, boxname: str) -> None:
-		""" Remove 'boxname' from goals
-		"""
-		if not(boxname in self.goals):
-			raise KeyError(f"Key '{boxname}' is missing from goals ('{self.goals_path}')")
-		del(self.goals[boxname])
+	def remove_target(self, boxname: str) -> None:
+		"""Remove a target for the given balance."""
+		if not(boxname in self.targets):
+			raise KeyError(f"Key '{boxname}' is missing from targets ('{self.goals_path}')")
+		del(self.targets[boxname])
 	
-	def goal_monthly_deposit(self, boxname: str, after_monthly_deposit: bool) -> int:
-		goal = self.goals[boxname]['goal']
-		due = self.goals[boxname]['due']
-		curr_amount = self.partition[boxname]
+	def target_monthly_deposit(self, boxname: str, after_monthly_deposit: bool) -> int:
+		"""Calculate the required monthly deposit to reach a target by its due date."""
+		goal = self.targets[boxname]['goal']
+		due = self.targets[boxname]['due']
+		curr_amount = self.balances[boxname]
 		diff = due - self.now
 		months_left = math.ceil(diff.days / DAYS_IN_MONTH)
 		if after_monthly_deposit:
@@ -276,116 +283,121 @@ class AmountPartition(object):
 		else: # months_left == 0
 			monthly = goal - curr_amount
 		monthly = int(monthly)
-		if monthly < 0: # Goal is already reached
+		if monthly < 0: # Target is already reached
 			monthly = 0
 		return monthly
 	
 	#### peiodic methods
-	def set_periodic(self, boxname: str, periodic_amount: int, target: int = 0) -> None:
-		if not(boxname in self.partition):
+	def set_recurring(self, boxname: str, periodic_amount: int, target: int = 0) -> None:
+		"""Set a recurring deposit for a balance, with an optional target amount."""
+		if not(boxname in self.balances):
 			raise KeyError(f"Key '{boxname}' is missing from database ('{self.db_dir}')")
-		self.periodic[boxname] = PeriodicDeposit(periodic_amount, target)
+		self.recurring[boxname] = PeriodicDeposit(periodic_amount, target)
 
-	def remove_periodic(self, boxname: str) -> None:
-		""" Remove 'boxname' from periodic deposits
-		"""
-		if not(boxname in self.periodic):
-			raise KeyError(f"Key '{boxname}' is missing from periodic deposits ('{self.periodic_path}')")
-		del(self.periodic[boxname])
+	def remove_recurring(self, boxname: str) -> None:
+		"""Remove a recurring deposit for the given balance."""
+		if not(boxname in self.recurring):
+			raise KeyError(f"Key '{boxname}' is missing from recurring deposits ('{self.periodic_path}')")
+		del(self.recurring[boxname])
 	
 	def _periodic_months_left(self, boxname: str) -> int:
-		missing = self.periodic[boxname].target - self.partition[boxname]
-		left = missing / self.periodic[boxname].amount
+		"""Return the number of months left to reach the recurring target for a balance."""
+		missing = self.recurring[boxname].target - self.balances[boxname]
+		left = missing / self.recurring[boxname].amount
 		left = math.ceil(left)
 		return left
 
 
 	#### Suggestion methods
 	def suggest_deposits(self, skip: str = '', additional_suggestion: bool = False) -> dict[str, int]:
-		""" Makes a suggestion for possible deposit that reflects the goals and periodic
-		amounts that was set by user. Following suggestion assures reaching the goals on
-		time.
+		"""Suggest deposit amounts for each balance to meet targets and recurring deposits.
 
 		Params:
 		skip (string):
-			comma seperated boxnames that you want to avoid from putting into generated
+			comma separated balance names that you want to avoid from putting into generated
 			suggestion
 		additional_suggestion (bool):
 			'False' if this is the suggestion is meant to be used for the regular monthly
 			deposit (for example, on the salary pay day). If called with 'True' this means
 			that this suggestion is yet another one that comes after the regular deposit.
-			This is important because the monthly deposit per goal needs to know how many
-			months are left to reach the goal- this number should reflect the number of
+			This is important because the monthly deposit per target needs to know how many
+			months are left to reach the target- this number should reflect the number of
 			deposits left. Therefore if the regular deposit has taken place already, then
 			there is one less deposit left so we need to take this into account on the
 		calculations
 
-		Return value: dictionary that maps boxname to amount that needs to be put in box.
+		Return value: dictionary that maps balance name to amount that needs to be put in balance.
 		This dictionary can be fed into the method "apply_suggestion" if there is
-		sufficient amount available in "free" and "virtual"
+		sufficient amount available in "free" and "credit-spent"
 		"""
 		suggestion = {}
 		skip = skip.split(',')
-		for boxname in self.goals:
+		for boxname in self.targets:
 			if boxname in skip:
 				continue
-			box_suggestion = self.goal_monthly_deposit(boxname, additional_suggestion)
-			if box_suggestion == 0: # Goal is already reached
+			box_suggestion = self.target_monthly_deposit(boxname, additional_suggestion)
+			if box_suggestion == 0: # Target is already reached
 				continue
 			suggestion[boxname] = box_suggestion
 
-		for boxname in self.periodic:
+		for boxname in self.recurring:
 			if boxname in suggestion:
-				raise KeyError(f"Key '{boxname}' appears in 'periodic' as well as in 'goals'")
+				raise KeyError(f"Key '{boxname}' appears in 'recurring' as well as in 'targets'")
 			if boxname in skip:
 				continue
-			should_periodic = \
-					self.periodic[boxname].target == 0 or \
-					self.partition[boxname] < self.periodic[boxname].target
-			if not(should_periodic):
+			should_recurring = \
+					self.recurring[boxname].target == 0 or \
+					self.balances[boxname] < self.recurring[boxname].target
+			if not(should_recurring):
 				continue
 
 			# Calculate how much should be added in this deposit
-			if self.periodic[boxname].target == 0:
-				suggestion[boxname] = self.periodic[boxname].amount
-			elif (self.partition[boxname] + self.periodic[boxname].amount) < self.periodic[boxname].target:
-				suggestion[boxname] = self.periodic[boxname].amount
+			if self.recurring[boxname].target == 0:
+				suggestion[boxname] = self.recurring[boxname].amount
+			elif (self.balances[boxname] + self.recurring[boxname].amount) < self.recurring[boxname].target:
+				suggestion[boxname] = self.recurring[boxname].amount
 			else: # Missing part is less than usual amount
-				suggestion[boxname] = self.periodic[boxname].target - self.partition[boxname]
+				suggestion[boxname] = self.recurring[boxname].target - self.balances[boxname]
 		return suggestion
 
 	def apply_suggestion(self, suggestion: dict[str, int]) -> None:
+		"""Apply a deposit suggestion to the balances, updating their values."""
 		suggestion_sum = sum([suggestion[boxname] for boxname in suggestion])
-		if suggestion_sum > self.partition['free']:
-			missing = suggestion_sum - self.partition['free']
+		if suggestion_sum > self.balances['free']:
+			missing = suggestion_sum - self.balances['free']
 			raise ValueError(f"Cannot apply suggestion- missing {missing} in 'free'")
 		for boxname in suggestion:
-			if boxname not in self.partition:
+			if boxname not in self.balances:
 				raise KeyError(f"Key '{boxname}' is missing from database ('{self.partition_path}')")
-			self.increase_box(boxname, suggestion[boxname])
+			self.add_to_balance(boxname, suggestion[boxname])
 	
-	# Suggestion for locking money
-	def locked_amount(self, days_to_lock: int) -> int:
+	# Reserved funds for future targets
+	def reserved_amount(self, days_to_lock: int) -> int:
+		"""
+		Return the total amount in balances that are reserved for targets with due dates at least `days_to_lock` days in the future.
+
+		This represents the sum of all funds that are committed to future targets (goals) and cannot be considered available for other uses (such as short-term deposits or spending) for at least the given number of days. It helps you understand how much of your money is 'locked' for future obligations and how much is truly available for flexible use.
+		"""
 		today = datetime.now()
 		tuples = []
-		for x in self.goals:
-			amount_got = self.partition[x]
-			due_date = self.goals[x]['due']
+		for x in self.targets:
+			amount_got = self.balances[x]
+			due_date = self.targets[x]['due']
 			delta = due_date - today
 			days_left = delta.days
 			tuples.append((amount_got, days_left))
 
 		sorted_tuples = sorted(tuples, key=lambda x: x[1])
-		locked_amount = 0
+		reserved_amount = 0
 		for amount_got, days_left in sorted_tuples:
 			if days_left >= days_to_lock:
-				locked_amount += amount_got
-		return locked_amount
+				reserved_amount += amount_got
+		return reserved_amount
 
 
 if __name__ == "__main__": ## DEBUG
 	homedir = os.environ['HOME']
 	DB = f"{homedir}/git/finance/partition-bp"
-	fp = AmountPartition(DB)
+	fp = BudgetManager(DB)
 	#print(fp.get_total())
 	print(fp.locked_amount(1))
