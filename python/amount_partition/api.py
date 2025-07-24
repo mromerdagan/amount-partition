@@ -11,7 +11,7 @@ class PeriodicDeposit:
 	amount: int
 	target: int
 
-def extract_lines(raw):
+def extract_lines(raw: str) -> list[str]:
 	lines = raw.split('\n')
 	lines = [l.split('#')[0] for l in lines] # remove comments
 	lines = [l.strip() for l in lines]
@@ -19,7 +19,7 @@ def extract_lines(raw):
 	return lines
 
 class AmountPartition(object):
-	def __init__(self, db_dir):
+	def __init__(self, db_dir: str) -> None:
 		self.db_dir = Path(db_dir)
 		self.partition_path = self.db_dir / 'partition'
 		self.goals_path = self.db_dir / 'goals'
@@ -35,7 +35,7 @@ class AmountPartition(object):
 		# Used in multiple functions
 		self.now = datetime.now()
 
-	def setup(self):
+	def setup(self) -> None:
 		if self.partition or self.goals or self.periodic:
 			raise Exception('Setup has already been run before')
 
@@ -50,14 +50,14 @@ class AmountPartition(object):
 			self.read_goals()
 			self.read_periodic()
 
-	def read_partition(self):
+	def read_partition(self) -> None:
 		raw = self.partition_path.read_text()
 		lines = extract_lines(raw)
 		for line in lines:
 			boxname, size = line.split()
 			self.partition[boxname] = int(size)
 
-	def read_goals(self):
+	def read_goals(self) -> None:
 		if not(self.goals_path.exists()):
 			return
 
@@ -69,7 +69,7 @@ class AmountPartition(object):
 			due = datetime.strptime(due, '%Y-%m')
 			self.goals[boxname] = {'goal': goal, 'due': due}
 
-	def read_periodic(self):
+	def read_periodic(self) -> None:
 		if not(self.periodic_path.exists()):
 			return
 
@@ -86,7 +86,7 @@ class AmountPartition(object):
 					raise
 			self.periodic[boxname] = PeriodicDeposit(int(p), int(target))
 
-	def pprint(self):
+	def pprint(self) -> None:
 		print("Partition:")
 		print("==========")
 		print("\n".join(["{:<20} {}".format(boxname, self.partition[boxname]) for boxname in self.partition]))
@@ -116,7 +116,7 @@ class AmountPartition(object):
 				for boxname in self.periodic]))
 
 
-	def dump_data(self):
+	def dump_data(self) -> None:
 		t = self.db_dir / (self.partition_path.name + '.new')
 		with t.open('w') as fh:
 			for boxname in self.partition:
@@ -148,17 +148,17 @@ class AmountPartition(object):
 					fh.write(line)
 			t.replace(self.periodic_path)
 
-	def get_total(self):
+	def get_total(self) -> int:
 		amounts = [self.partition[boxname] for boxname in self.partition]
 		return sum(amounts)
 
-	def deposit(self, amount, merge_with_virtual=True):
+	def deposit(self, amount: int, merge_with_virtual: bool = True) -> None:
 		self.partition['free'] += amount
 		if merge_with_virtual:
 			self.partition['free'] += self.partition['spent-virtually']
 			self.partition['spent-virtually'] = 0
 
-	def withdraw(self, amount=0):
+	def withdraw(self, amount: int = 0) -> None:
 		if not(amount):
 			self.partition['free'] = 0
 		else:
@@ -166,7 +166,7 @@ class AmountPartition(object):
 				raise ValueError("'free' box must be greater or equal to 0 (max reduction: {})".format(self.partition['free']))
 			self.partition['free'] -= amount
 
-	def spend(self, boxname, amount=0, virtual=False):
+	def spend(self, boxname: str, amount: int = 0, virtual: bool = False) -> None:
 		""" Use amount in box.
 			If virtual == True, this means that the amount was not being withdrawn
 			from the bank/fund/other, but only will effect future deposits.
@@ -184,7 +184,7 @@ class AmountPartition(object):
 		if virtual:
 			self.partition['spent-virtually'] += amount
 
-	def increase_box(self, boxname, amount):
+	def increase_box(self, boxname: str, amount: int) -> None:
 		if not(boxname in self.partition):
 			raise KeyError(f"Key '{boxname}' is missing from database ('{self.partition_path}')")
 		if amount > self.partition['free']:
@@ -193,7 +193,7 @@ class AmountPartition(object):
 		self.partition['free'] -= amount
 		self.partition[boxname] += amount
 	
-	def box_to_box(self, from_box, to_box, amount):
+	def box_to_box(self, from_box: str, to_box: str, amount: int) -> None:
 		for boxname in [from_box, to_box]:
 			if not(boxname in self.partition):
 				raise KeyError(f"Key '{boxname}' is missing from database ('{self.partition_path}')")
@@ -205,14 +205,14 @@ class AmountPartition(object):
 		self.partition[to_box] += amount
 
 
-	def new_box(self, boxname):
+	def new_box(self, boxname: str) -> None:
 		""" Creates new box named <boxname>
 		"""
 		if boxname in self.partition:
 			raise KeyError(f"Key '{boxname}' is already in database ('{self.partition_path}')")
 		self.partition[boxname] = 0
 
-	def remove_box(self, boxname):
+	def remove_box(self, boxname: str) -> None:
 		""" Remove box named <boxname>, put amount in 'free'
 		"""
 		if not(boxname in self.partition):
@@ -226,7 +226,7 @@ class AmountPartition(object):
 		if boxname in self.periodic:
 			del(self.periodic[boxname])
 	
-	def new_loan(self, amount, due):
+	def new_loan(self, amount: int, due: str) -> None:
 		""" Self loan- add negative sum box, add goal set to 0 to due date
 		"""
 		boxname = 'self-loan'
@@ -238,20 +238,20 @@ class AmountPartition(object):
 		self.set_goal(boxname, 0, due)
 	
 	#### goal methods
-	def set_goal(self, boxname, goal, due):
+	def set_goal(self, boxname: str, goal: int, due: str) -> None:
 		if not(boxname in self.partition):
 			raise KeyError(f"Key '{boxname}' is missing from database ('{self.db_dir}')")
 		due = datetime.strptime(due, '%Y-%m')
 		self.goals[boxname] = {'goal': goal, 'due': due}
 
-	def remove_goal(self, boxname):
+	def remove_goal(self, boxname: str) -> None:
 		""" Remove 'boxname' from goals
 		"""
 		if not(boxname in self.goals):
 			raise KeyError(f"Key '{boxname}' is missing from goals ('{self.goals_path}')")
 		del(self.goals[boxname])
 	
-	def goal_monthly_deposit(self, boxname, after_monthly_deposit):
+	def goal_monthly_deposit(self, boxname: str, after_monthly_deposit: bool) -> int:
 		goal = self.goals[boxname]['goal']
 		due = self.goals[boxname]['due']
 		curr_amount = self.partition[boxname]
@@ -269,19 +269,19 @@ class AmountPartition(object):
 		return monthly
 	
 	#### peiodic methods
-	def set_periodic(self, boxname, periodic_amount, target=0):
+	def set_periodic(self, boxname: str, periodic_amount: int, target: int = 0) -> None:
 		if not(boxname in self.partition):
 			raise KeyError(f"Key '{boxname}' is missing from database ('{self.db_dir}')")
 		self.periodic[boxname] = PeriodicDeposit(periodic_amount, target)
 
-	def remove_periodic(self, boxname):
+	def remove_periodic(self, boxname: str) -> None:
 		""" Remove 'boxname' from periodic deposits
 		"""
 		if not(boxname in self.periodic):
 			raise KeyError(f"Key '{boxname}' is missing from periodic deposits ('{self.periodic_path}')")
 		del(self.periodic[boxname])
 	
-	def _periodic_months_left(self, boxname):
+	def _periodic_months_left(self, boxname: str) -> int:
 		missing = self.periodic[boxname].target - self.partition[boxname]
 		left = missing / self.periodic[boxname].amount
 		left = math.ceil(left)
@@ -289,7 +289,7 @@ class AmountPartition(object):
 
 
 	#### Suggestion methods
-	def suggest_deposits(self, skip='', additional_suggestion=False):
+	def suggest_deposits(self, skip: str = '', additional_suggestion: bool = False) -> dict[str, int]:
 		""" Makes a suggestion for possible deposit that reflects the goals and periodic
 		amounts that was set by user. Following suggestion assures reaching the goals on
 		time.
@@ -342,7 +342,7 @@ class AmountPartition(object):
 				suggestion[boxname] = self.periodic[boxname].target - self.partition[boxname]
 		return suggestion
 
-	def apply_suggestion(self, suggestion):
+	def apply_suggestion(self, suggestion: dict[str, int]) -> None:
 		suggestion_sum = sum([suggestion[boxname] for boxname in suggestion])
 		if suggestion_sum > self.partition['free']:
 			missing = suggestion_sum - self.partition['free']
@@ -353,7 +353,7 @@ class AmountPartition(object):
 			self.increase_box(boxname, suggestion[boxname])
 	
 	# Suggestion for locking money
-	def locked_amount(self, days_to_lock):
+	def locked_amount(self, days_to_lock: int) -> int:
 		today = datetime.now()
 		tuples = []
 		for x in self.goals:
