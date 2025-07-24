@@ -39,7 +39,7 @@ class AmountPartition(object):
 
 	def setup(self) -> None:
 		if self.partition or self.goals or self.periodic:
-			raise Exception('Setup has already been run before')
+			raise RuntimeError('Setup has already been run before. The partition, goals, or periodic data structures are not empty. This likely indicates a logic error or repeated initialization.')
 
 		if not(self.partition_path.exists()): # Initialize new partition
 			with self.partition_path.open('w') as fh:
@@ -47,17 +47,23 @@ class AmountPartition(object):
 			self.new_box('free')
 			self.new_box('spent-virtually')
 			self.dump_data()
-		else: # Create new partition
-			self.read_partition()
-			self.read_goals()
-			self.read_periodic()
+		else: # Load existing partition
+			try:
+				self.read_partition()
+				self.read_goals()
+				self.read_periodic()
+			except Exception as e:
+				raise RuntimeError(f"Failed to read partition data from {self.db_dir}: {e}") from e
 
 	def read_partition(self) -> None:
 		raw = self.partition_path.read_text()
 		lines = extract_lines(raw)
 		for line in lines:
-			boxname, size = line.split()
-			self.partition[boxname] = int(size)
+			try:
+				boxname, size = line.split()
+				self.partition[boxname] = int(size)
+			except ValueError as e:
+				raise ValueError(f"Malformed line in partition file: '{line}'. Expected format: '<boxname> <size>'") from e
 
 	def read_goals(self) -> None:
 		if not(self.goals_path.exists()):
@@ -66,10 +72,13 @@ class AmountPartition(object):
 		raw = self.goals_path.read_text()
 		lines = extract_lines(raw)
 		for line in lines:
-			boxname, goal, due = line.split()
-			goal = int(goal)
-			due = datetime.strptime(due, '%Y-%m')
-			self.goals[boxname] = {'goal': goal, 'due': due}
+			try:
+				boxname, goal, due = line.split()
+				goal = int(goal)
+				due = datetime.strptime(due, '%Y-%m')
+				self.goals[boxname] = {'goal': goal, 'due': due}
+			except ValueError as e:
+				raise ValueError(f"Malformed line in goals file: '{line}'. Expected format: '<boxname> <goal> <due YYYY-MM>'") from e
 
 	def read_periodic(self) -> None:
 		if not(self.periodic_path.exists()):
@@ -80,12 +89,13 @@ class AmountPartition(object):
 		for line in lines:
 			try:
 				boxname, p, target = line.split()
-			except ValueError: # Backward compatibility
-				if len(line.split()) == 2:
-					boxname, p = line.split()
+			except ValueError:
+				parts = line.split()
+				if len(parts) == 2:
+					boxname, p = parts
 					target = 0
 				else:
-					raise
+					raise ValueError(f"Malformed line in periodic file: '{line}'. Expected format: '<boxname> <amount> <target>' or '<boxname> <amount>'")
 			self.periodic[boxname] = PeriodicDeposit(int(p), int(target))
 
 	def pprint(self) -> None:
