@@ -9,6 +9,12 @@ from collections import OrderedDict
 from dataclasses import dataclass
 
 @dataclass
+class Target:
+	goal: int
+	due: datetime
+
+
+@dataclass
 class PeriodicDeposit:
 	amount: int
 	target: int
@@ -81,7 +87,7 @@ class BudgetManager(object):
 				boxname, goal, due = line.split()
 				goal = int(goal)
 				due = datetime.strptime(due, '%Y-%m')
-				self.targets[boxname] = {'goal': goal, 'due': due}
+				self.targets[boxname] = Target(goal=goal, due=due)
 			except ValueError as e:
 				raise ValueError(f"Malformed line in goals file: '{line}'. Expected format: '<boxname> <goal> <due YYYY-MM>'") from e
 
@@ -117,8 +123,8 @@ class BudgetManager(object):
 		after_deposit = self.now.day >= DEPOSIT_DAY
 		print("\n".join(["{:<20} {:<10} {:<15} ({} monthly)".format(\
 				boxname, \
-				self.targets[boxname]['goal'], \
-				self.targets[boxname]['due'].strftime('%Y-%m'), \
+				self.targets[boxname].goal, \
+				self.targets[boxname].due.strftime('%Y-%m'), \
 				self.target_monthly_deposit(boxname, after_deposit), \
 				) \
 				for boxname in self.targets]))
@@ -261,7 +267,7 @@ class BudgetManager(object):
 		if not(boxname in self.balances):
 			raise KeyError(f"Key '{boxname}' is missing from database ('{self.db_dir}')")
 		due = datetime.strptime(due, '%Y-%m')
-		self.targets[boxname] = {'goal': goal, 'due': due}
+		self.targets[boxname] = Target(goal=goal, due=due)
 
 	def remove_target(self, boxname: str) -> None:
 		"""Remove a target for the given balance."""
@@ -271,8 +277,9 @@ class BudgetManager(object):
 	
 	def target_monthly_deposit(self, boxname: str, after_monthly_deposit: bool) -> int:
 		"""Calculate the required monthly deposit to reach a target by its due date."""
-		goal = self.targets[boxname]['goal']
-		due = self.targets[boxname]['due']
+		target = self.targets[boxname]
+		goal = target.goal
+		due = target.due
 		curr_amount = self.balances[boxname]
 		diff = due - self.now
 		months_left = math.ceil(diff.days / DAYS_IN_MONTH)
@@ -382,7 +389,7 @@ class BudgetManager(object):
 		tuples = []
 		for x in self.targets:
 			amount_got = self.balances[x]
-			due_date = self.targets[x]['due']
+			due_date = self.targets[x].due
 			delta = due_date - today
 			days_left = delta.days
 			tuples.append((amount_got, days_left))
