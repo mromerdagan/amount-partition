@@ -1,6 +1,3 @@
-DEPOSIT_DAY = 10  # Day of month after which deposit is considered done
-DAYS_IN_MONTH = 30  # Used for monthly calculations
-
 import os
 import math
 from pathlib import Path
@@ -9,7 +6,8 @@ from collections import OrderedDict
 from .parsing import parse_balance_line, parse_target_line, parse_periodic_line, extract_lines
 from .models import Target, PeriodicDeposit
 
-
+DEPOSIT_DAY = 10  # Day of month after which deposit is considered done
+DAYS_IN_MONTH = 30  # Used for monthly calculations
 
 class BudgetManager(object):
 	def __init__(self, db_dir: str) -> None:
@@ -91,66 +89,35 @@ class BudgetManager(object):
 		self._read_goals()
 		self._read_periodic()
 
-	def pprint(self) -> None:
-		"""Pretty-print the current balances, targets, and recurring deposits."""
-		print("Balances:")
-		print("=========")
-		print("\n".join(["{:<20} {}".format(boxname, self.balances[boxname]) for boxname in self.balances]))
-		print()
-		print("Total: ", self.get_total())
-		print()
-		print("Targets:")
-		print("========")
-		after_deposit = self.now.day >= DEPOSIT_DAY
-		print("\n".join(["{:<20} {:<10} {:<15} ({} monthly)".format(\
-				boxname, \
-				self.targets[boxname].goal, \
-				self.targets[boxname].due.strftime('%Y-%m'), \
-				self.target_monthly_deposit(boxname, after_deposit), \
-				) \
-				for boxname in self.targets]))
-		print()
-		print("Recurring deposits:")
-		print("===================")
-		print("\n".join(["{:<20} {:<10} {:<15} ({} months left)".format(\
-				boxname, \
-				self.recurring[boxname].amount, \
-				self.recurring[boxname].target, \
-				self._periodic_months_left(boxname) if
-					self.recurring[boxname].target != 0 else '∞', \
-				)
-				for boxname in self.recurring]))
-
-
 	def dump_data(self) -> None:
 		"""Write current partition, goals, and periodic data to files."""
 		t = self.db_dir / (self.partition_path.name + '.new')
 		with t.open('w') as fh:
-			for boxname in self.partition:
-				line = "{:<20} {}\n".format(boxname, self.partition[boxname])
+			for target in self.balances:
+				line = "{:<20} {}\n".format(target, self.balances[target])
 				fh.write(line)
 		t.replace(self.partition_path)
 
-		if self.goals:
+		if self.targets:
 			t = self.db_dir / (self.goals_path.name + '.new')
 			with t.open('w') as fh:
-				for boxname in self.goals:
+				for target in self.targets:
 					line = "{:<20} {:<15} {}\n".format(\
-							boxname, \
-							self.goals[boxname]['goal'], \
-							self.goals[boxname]['due'].strftime('%Y-%m') \
+							target, \
+							self.targets[target].goal, \
+							self.targets[target].due.strftime('%Y-%m') \
 							)
 					fh.write(line)
 			t.replace(self.goals_path)
 
-		if self.periodic:
+		if self.recurring:
 			t = self.db_dir / (self.periodic_path.name + '.new')
 			with t.open('w') as fh:
-				for boxname in self.periodic:
+				for target in self.recurring:
 					line = "{:<20} {:<10} {}\n".format(\
-							boxname, \
-							self.periodic[boxname].amount, \
-							self.periodic[boxname].target, \
+							target, \
+							self.recurring[target].amount, \
+							self.recurring[target].target, \
 							)
 					fh.write(line)
 			t.replace(self.periodic_path)
