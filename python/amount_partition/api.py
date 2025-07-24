@@ -6,26 +6,10 @@ import math
 from pathlib import Path
 from datetime import datetime, timedelta
 from collections import OrderedDict
-from dataclasses import dataclass
-
-@dataclass
-class Target:
-	goal: int
-	due: datetime
+from .parsing import parse_balance_line, parse_target_line, parse_periodic_line, extract_lines
+from .models import Target, PeriodicDeposit
 
 
-@dataclass
-class PeriodicDeposit:
-	amount: int
-	target: int
-
-def extract_lines(raw: str) -> list[str]:
-	"""Extracts non-empty, non-comment lines from a raw string."""
-	lines = raw.split('\n')
-	lines = [l.split('#')[0] for l in lines]  # remove comments
-	lines = [l.strip() for l in lines]
-	lines = [l for l in lines if l]  # remove empty lines
-	return lines
 
 class BudgetManager(object):
 	def __init__(self, db_dir: str) -> None:
@@ -58,24 +42,22 @@ class BudgetManager(object):
 			self.dump_data()
 		else: # Load existing partition
 			try:
-				self.read_partition()
-				self.read_goals()
-				self.read_periodic()
+				self._read_all_data()
 			except Exception as e:
 				raise RuntimeError(f"Failed to read partition data from {self.db_dir}: {e}") from e
 
-	def read_partition(self) -> None:
+	def _read_partition(self) -> None:
 		"""Read balances data from file into self.balances."""
 		raw = self.partition_path.read_text()
 		lines = extract_lines(raw)
 		for line in lines:
 			try:
-				boxname, size = line.split()
-				self.balances[boxname] = int(size)
+				boxname, amount = parse_balance_line(line)
+				self.balances[boxname] = amount
 			except ValueError as e:
 				raise ValueError(f"Malformed line in partition file: '{line}'. Expected format: '<boxname> <size>'") from e
 
-	def read_goals(self) -> None:
+	def _read_goals(self) -> None:
 		"""Read targets data from file into self.targets."""
 		if not(self.goals_path.exists()):
 			return
@@ -84,14 +66,12 @@ class BudgetManager(object):
 		lines = extract_lines(raw)
 		for line in lines:
 			try:
-				boxname, goal, due = line.split()
-				goal = int(goal)
-				due = datetime.strptime(due, '%Y-%m')
-				self.targets[boxname] = Target(goal=goal, due=due)
+				boxname, target = parse_target_line(line)
+				self.targets[boxname] = target
 			except ValueError as e:
 				raise ValueError(f"Malformed line in goals file: '{line}'. Expected format: '<boxname> <goal> <due YYYY-MM>'") from e
 
-	def read_periodic(self) -> None:
+	def _read_periodic(self) -> None:
 		"""Read recurring deposit data from file into self.recurring."""
 		if not(self.periodic_path.exists()):
 			return
@@ -100,15 +80,16 @@ class BudgetManager(object):
 		lines = extract_lines(raw)
 		for line in lines:
 			try:
-				boxname, p, target = line.split()
-			except ValueError:
-				parts = line.split()
-				if len(parts) == 2:
-					boxname, p = parts
-					target = 0
-				else:
-					raise ValueError(f"Malformed line in periodic file: '{line}'. Expected format: '<boxname> <amount> <target>' or '<boxname> <amount>'")
-			self.recurring[boxname] = PeriodicDeposit(int(p), int(target))
+				boxname, periodic = parse_periodic_line(line)
+				self.recurring[boxname] = periodic
+			except ValueError as e:
+				raise ValueError(f"Malformed line in periodic file: '{line}'. Expected format: '<boxname> <amount> <target>' or '<boxname> <amount>'") from e
+
+	def _read_all_data(self) -> None:
+		"""Read all data files (partition, goals, periodic) into their respective structures."""
+		self._read_partition()
+		self._read_goals()
+		self._read_periodic()
 
 	def pprint(self) -> None:
 		"""Pretty-print the current balances, targets, and recurring deposits."""
