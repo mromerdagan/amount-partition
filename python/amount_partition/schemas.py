@@ -45,3 +45,6 @@ class RemoveBoxRequest(BaseModel):
 class NewLoanRequest(BaseModel):
     amount: int
     due: str
+
+class CreateDbRequest(BaseModel):
+    location: str
