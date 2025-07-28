@@ -1,11 +1,9 @@
+import json
 import typer
 from amount_partition.api import BudgetManagerApi
 from amount_partition.presentation import print_summary
 
-
-
 app = typer.Typer()
-
 
 @app.command()
 def summary(db_dir: str = typer.Option('.', '--db-dir', help="Path to the database directory")):
@@ -17,7 +15,6 @@ def summary(db_dir: str = typer.Option('.', '--db-dir', help="Path to the databa
         recurring=manager.recurring,
         total=manager.get_total()
     )
-
 
 
 @app.command()
@@ -139,6 +136,47 @@ def set_target(
     manager.set_target(boxname, goal, due)
     manager.dump_data()
     typer.echo(f"Set target for '{boxname}': {goal} by {due}.")
+
+
+@app.command()
+def create_db(
+    db_dir: str = typer.Argument(..., help="Path to the new database directory")
+):
+    """Create a new database at the given location."""
+    try:
+        BudgetManagerApi.create_db(db_dir)
+        typer.echo(f"Database created at {db_dir}.")
+    except Exception as e:
+        typer.echo(f"Failed to create database: {e}", err=True)
+
+
+@app.command()
+def to_json(
+    db_dir: str = typer.Option('.', '--db-dir', help="Path to the database directory"),
+    output: str = typer.Option('-', '--output', help="Output file (default: stdout)")
+):
+    """Export the database to JSON."""
+    manager = BudgetManagerApi(db_dir)
+    data = manager.to_json()
+    json_str = json.dumps(data, indent=2)
+    if output == '-' or not output:
+        typer.echo(json_str)
+    else:
+        with open(output, 'w') as f:
+            f.write(json_str)
+        typer.echo(f"Exported database to {output}.")
+
+
+@app.command()
+def from_json(
+    db_dir: str = typer.Argument(..., help="Path to the database directory to import into"),
+    input_file: str = typer.Argument(..., help="Input JSON file")
+):
+    """Import database from a JSON file, overwriting any existing data."""
+    with open(input_file, 'r') as f:
+        data = json.load(f)
+    BudgetManagerApi.from_json(db_dir, data)
+    typer.echo(f"Imported database from {input_file} into {db_dir}.")
 
 if __name__ == "__main__":
     app()

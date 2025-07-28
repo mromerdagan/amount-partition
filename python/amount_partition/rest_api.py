@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException, Body
+from fastapi import FastAPI, HTTPException, Body, UploadFile, File
+import json
 from typing import List
 from amount_partition.api import BudgetManagerApi
 from amount_partition.models import Target, PeriodicDeposit
@@ -93,3 +94,20 @@ def create_db(req: CreateDbRequest = Body(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create DB: {e}")
     return {"status": "created", "location": req.location}
+
+# Export database as JSON
+@app.get("/export_json")
+def export_json(db_dir: str = "."):
+    manager = get_manager(db_dir)
+    return manager.to_json()
+
+# Import database from JSON
+@app.post("/import_json")
+async def import_json(db_dir: str = ".", file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        data = json.loads(contents)
+        BudgetManagerApi.from_json(db_dir, data)
+        return {"status": "imported", "db_dir": db_dir}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to import JSON: {e}")
