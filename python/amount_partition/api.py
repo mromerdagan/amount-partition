@@ -43,6 +43,21 @@ class BudgetManagerApi(object):
 				self._read_all_data()
 			except Exception as e:
 				raise RuntimeError(f"Failed to read partition data from {self.db_dir}: {e}") from e
+	
+
+	@classmethod
+	def create_db(cls, location: str) -> 'BudgetManagerApi':
+		"""
+		Create a new database at the given location. Raises an error if a DB already exists there.
+		Returns the BudgetManagerApi instance for the new DB.
+		"""
+		db_dir = Path(location)
+		partition_path = db_dir / 'partition'
+		if partition_path.exists():
+			raise FileExistsError(f"A database already exists at {partition_path}")
+		db_dir.mkdir(parents=True, exist_ok=True)
+		instance = cls(location)
+		return instance
 
 	def _read_partition(self) -> None:
 		"""Read balances data from file into self.balances."""

@@ -1,10 +1,9 @@
-
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Body
 from typing import List
 from amount_partition.api import BudgetManagerApi
 from amount_partition.models import Target, PeriodicDeposit
 from amount_partition.schemas import (
-    BalanceResponse, TargetResponse, DepositRequest, SetTargetRequest, WithdrawRequest, SpendRequest, AddToBalanceRequest, TransferRequest, NewBoxRequest, RemoveBoxRequest, NewLoanRequest
+    BalanceResponse, TargetResponse, DepositRequest, SetTargetRequest, WithdrawRequest, SpendRequest, AddToBalanceRequest, TransferRequest, NewBoxRequest, RemoveBoxRequest, NewLoanRequest, CreateDbRequest
 )
 
 app = FastAPI()
@@ -84,3 +83,13 @@ def new_loan(req: NewLoanRequest, db_dir: str = "."):
     manager.new_loan(req.amount, req.due)
     manager.dump_data()
     return {"status": "ok"}
+
+@app.post("/create_db")
+def create_db(req: CreateDbRequest = Body(...)):
+    try:
+        BudgetManagerApi.create_db(req.location)
+    except FileExistsError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create DB: {e}")
+    return {"status": "created", "location": req.location}
