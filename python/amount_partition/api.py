@@ -10,6 +10,7 @@ DEPOSIT_DAY = 10  # Day of month after which deposit is considered done
 DAYS_IN_MONTH = 30  # Used for monthly calculations
 
 class BudgetManagerApi(object):
+
 	def __init__(self, db_dir: str) -> None:
 		"""Initialize AmountPartition with a database directory."""
 		self.db_dir = Path(db_dir)
@@ -57,6 +58,56 @@ class BudgetManagerApi(object):
 			raise FileExistsError(f"A database already exists at {partition_path}")
 		db_dir.mkdir(parents=True, exist_ok=True)
 		instance = cls(location)
+		return instance
+
+	def to_json(self) -> dict:
+		"""
+		Serialize the current state to a JSON-serializable dict with keys: partition, goals, periodic.
+		"""
+		# partition: {boxname: amount}
+		partition = dict(self.balances)
+
+		# goals: {boxname: {"goal": int, "due": "YYYY-MM"}}
+		goals = {
+			k: {"goal": v.goal, "due": v.due.strftime("%Y-%m")}
+			for k, v in self.targets.items()
+		}
+
+		# periodic: {boxname: {"amount": int, "target": int}}
+		periodic = {
+			k: {"amount": v.amount, "target": v.target}
+			for k, v in self.recurring.items()
+		}
+
+		return {"partition": partition, "goals": goals, "periodic": periodic}
+
+	@classmethod
+	def from_json(cls, db_dir: str, data: dict) -> 'BudgetManagerApi':
+		"""
+		Create a BudgetManagerApi instance from a JSON dict (as produced by to_json).
+		Overwrites any existing data in the db_dir.
+		"""
+		try:
+			instance = cls.create_db(db_dir)
+		except FileExistsError:
+			instance = cls(db_dir)
+   
+		# partition
+		instance.balances.clear()
+		for boxname, amount in data.get("partition", {}).items():
+			instance.balances[boxname] = amount
+   
+		# goals
+		instance.targets.clear()
+		for boxname, goal_data in data.get("goals", {}).items():
+			due = goal_data["due"]
+			instance.set_target(boxname, goal_data["goal"], due)
+   
+		# periodic
+		instance.recurring.clear()
+		for boxname, periodic_data in data.get("periodic", {}).items():
+			instance.set_recurring(boxname, periodic_data["amount"], periodic_data["target"])
+		instance.dump_data()
 		return instance
 
 	def _read_partition(self) -> None:
