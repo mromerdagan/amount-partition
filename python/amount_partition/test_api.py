@@ -5,6 +5,24 @@ import os
 from pathlib import Path
 from amount_partition.api import BudgetManagerApi
 
+class TestListBalances(unittest.TestCase):
+    def setUp(self):
+        self.tempdir = tempfile.mkdtemp()
+        self.db = BudgetManagerApi(self.tempdir)
+        self.db.deposit(100)
+        self.db.new_box('testbox')
+        self.db.add_to_balance('testbox', 50)
+
+    def tearDown(self):
+        shutil.rmtree(self.tempdir)
+
+    def test_list_balances(self):
+        balances = self.db.list_balances()
+        self.assertIn('free', balances)
+        self.assertIn('testbox', balances)
+        self.assertIn('credit-spent', balances)
+        self.assertEqual(len(balances), 3)  # 'free' and 'testbox'
+
 class TestDeposit(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()

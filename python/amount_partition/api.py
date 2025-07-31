@@ -187,6 +187,10 @@ class BudgetManagerApi(object):
 							)
 					fh.write(line)
 			t.replace(self.periodic_path)
+   
+	def list_balances(self) -> list[str]:
+		"""Return a list of balance names."""
+		return list(self.balances.keys())
 
 	def get_total(self) -> int:
 		"""Return the total sum of all balances."""
