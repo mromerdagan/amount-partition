@@ -18,7 +18,7 @@ def get_balances(db_dir: str = "."):
     return [BalanceResponse(name=k, amount=v) for k, v in manager.balances.items()]
 
 @app.get("/list_balances")
-def get_balance_names(db_dir: str = "."):
+def list_balances(db_dir: str = "."):
     manager = get_manager(db_dir)
     return manager.list_balances()
 
