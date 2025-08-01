@@ -43,6 +43,11 @@ class LocalBudgetManagerClient(BudgetManagerClient):
         self.manager.remove_box(boxname)
         self.manager.dump_data()
 
+    def transfer_between_balances(self, from_box: str, to_box: str, amount: int):
+        self.manager.transfer_between_balances(from_box, to_box, amount)
+        self.manager.dump_data()
+        return {"from_box": self.manager.balances[from_box], "to_box": self.manager.balances[to_box]}
+
     def new_loan(self, amount: int, due: str):
         self.manager.new_loan(amount, due)
         self.manager.dump_data()

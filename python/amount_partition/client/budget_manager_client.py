@@ -50,6 +50,11 @@ class BudgetManagerClient(ABC):
         pass
 
     @abstractmethod
+    def transfer_between_balances(self, from_box: str, to_box: str, amount: int):
+        """Transfer amount from one balance to another."""
+        pass
+
+    @abstractmethod
     def new_loan(self, amount: int, due: str):
         """Create a self-loan with a negative amount and a target to repay by due date."""
         pass

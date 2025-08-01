@@ -69,6 +69,12 @@ class RemoteBudgetManagerClient(BudgetManagerClient):
         response = requests.post(f"{self.api_url}/remove_box", json=data, params={"db_dir": self.db_path})
         response.raise_for_status()
         return response.json()
+    
+    def transfer_between_balances(self, from_box: str, to_box: str, amount: int):
+        data = {"from_box": from_box, "to_box": to_box, "amount": amount}
+        response = requests.post(f"{self.api_url}/transfer_between_balances", json=data, params={"db_dir": self.db_path})
+        response.raise_for_status()
+        return response.json()
 
     def new_loan(self, amount: int, due: str):
         data = {
