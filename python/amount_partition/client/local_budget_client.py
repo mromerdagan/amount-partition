@@ -1,5 +1,5 @@
 from amount_partition.api import BudgetManagerApi
-from amount_partition.client.budget_client import BudgetManagerClient
+from amount_partition.client.budget_manager_client import BudgetManagerClient
 
 class LocalBudgetManagerClient(BudgetManagerClient):
     
