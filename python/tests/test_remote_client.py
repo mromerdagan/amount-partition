@@ -5,7 +5,7 @@ from amount_partition.client.remote_budget_client import RemoteBudgetManagerClie
 class TestRemoteBudgetManagerClient(unittest.TestCase):
 
     def setUp(self):
-        self.client = RemoteBudgetManagerClient("http://fake-api")
+        self.client = RemoteBudgetManagerClient("http://fake-api", db_path="/tmp/budget")
 
     @patch("amount_partition.client.remote_budget_client.requests.get")
     def test_get_balances(self, mock_get):
@@ -17,7 +17,7 @@ class TestRemoteBudgetManagerClient(unittest.TestCase):
         result = self.client.get_balances()
         self.assertEqual(result["free"], 100)
         self.assertEqual(result["vacation"], 50)
-        mock_get.assert_called_once_with("http://fake-api/balances")
+        mock_get.assert_called_once_with("http://fake-api/balances", params={"db_dir": "/tmp/budget"})
 
     @patch("amount_partition.client.remote_budget_client.requests.post")
     def test_deposit(self, mock_post):
@@ -30,7 +30,8 @@ class TestRemoteBudgetManagerClient(unittest.TestCase):
         self.assertEqual(result["free"], 200)
         mock_post.assert_called_once_with(
             "http://fake-api/deposit",
-            json={"amount": 100, "merge_with_credit": True}
+            json={"amount": 100, "merge_with_credit": True},
+            params={"db_dir": "/tmp/budget"}
         )
 
     @patch("amount_partition.client.remote_budget_client.requests.get")
@@ -42,7 +43,7 @@ class TestRemoteBudgetManagerClient(unittest.TestCase):
 
         result = self.client.list_balances()
         self.assertEqual(result, ["free", "vacation"])
-        mock_get.assert_called_once_with("http://fake-api/list_balances")
+        mock_get.assert_called_once_with("http://fake-api/list_balances", params={"db_dir": "/tmp/budget"})
 
     @patch("amount_partition.client.remote_budget_client.requests.get")
     def test_get_targets(self, mock_get):
@@ -55,7 +56,7 @@ class TestRemoteBudgetManagerClient(unittest.TestCase):
         self.assertEqual(result[0]["name"], "vacation")
         self.assertEqual(result[0]["goal"], 500)
         self.assertEqual(result[0]["due"], "2030-01")
-        mock_get.assert_called_once_with("http://fake-api/targets")
+        mock_get.assert_called_once_with("http://fake-api/targets", params={"db_dir": "/tmp/budget"})
 
     @patch("amount_partition.client.remote_budget_client.requests.post")
     def test_set_target(self, mock_post):
@@ -68,7 +69,8 @@ class TestRemoteBudgetManagerClient(unittest.TestCase):
         self.assertEqual(result["status"], "ok")
         mock_post.assert_called_once_with(
             "http://fake-api/set_target",
-            json={"boxname": "vacation", "goal": 500, "due": "2030-01"}
+            json={"boxname": "vacation", "goal": 500, "due": "2030-01"},
+            params={"db_dir": "/tmp/budget"}
         )
 
     @patch("amount_partition.client.remote_budget_client.requests.post")
@@ -82,7 +84,8 @@ class TestRemoteBudgetManagerClient(unittest.TestCase):
         self.assertEqual(result["free"], 0)
         mock_post.assert_called_once_with(
             "http://fake-api/withdraw",
-            json={"amount": 50}
+            json={"amount": 50},
+            params={"db_dir": "/tmp/budget"}
         )
     
     @patch("amount_partition.client.remote_budget_client.requests.post")
@@ -96,7 +99,8 @@ class TestRemoteBudgetManagerClient(unittest.TestCase):
         self.assertEqual(result["balance"], 100)
         mock_post.assert_called_once_with(
             "http://fake-api/add_to_balance",
-            json={"boxname": "vacation", "amount": 100}
+            json={"boxname": "vacation", "amount": 100},
+            params={"db_dir": "/tmp/budget"}
         )
 
     @patch("amount_partition.client.remote_budget_client.requests.post")
@@ -110,7 +114,8 @@ class TestRemoteBudgetManagerClient(unittest.TestCase):
         self.assertEqual(result["status"], "ok")
         mock_post.assert_called_once_with(
             "http://fake-api/new_box",
-            json={"boxname": "newbox"}
+            json={"boxname": "newbox"},
+            params={"db_dir": "/tmp/budget"}
         )
 
     @patch("amount_partition.client.remote_budget_client.requests.post")
@@ -124,7 +129,8 @@ class TestRemoteBudgetManagerClient(unittest.TestCase):
         self.assertEqual(result["status"], "ok")
         mock_post.assert_called_once_with(
             "http://fake-api/remove_box",
-            json={"boxname": "oldbox"}
+            json={"boxname": "oldbox"},
+            params={"db_dir": "/tmp/budget"}
         )
 
     @patch("amount_partition.client.remote_budget_client.requests.post")
@@ -138,7 +144,8 @@ class TestRemoteBudgetManagerClient(unittest.TestCase):
         self.assertEqual(result["status"], "ok")
         mock_post.assert_called_once_with(
             "http://fake-api/new_loan",
-            json={"amount": 500, "due": "2030-01"}
+            json={"amount": 500, "due": "2030-01"},
+            params={"db_dir": "/tmp/budget"}
         )
 
     @patch("amount_partition.client.remote_budget_client.requests.post")
@@ -166,7 +173,8 @@ class TestRemoteBudgetManagerClient(unittest.TestCase):
         self.assertEqual(result["balance"], 0)
         mock_post.assert_called_once_with(
             "http://fake-api/spend",
-            json={"boxname": "vacation", "amount": 50, "use_credit": True}
+            json={"boxname": "vacation", "amount": 50, "use_credit": True},
+            params={"db_dir": "/tmp/budget"}
         )
 
 

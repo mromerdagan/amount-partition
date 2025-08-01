@@ -3,6 +3,7 @@ from typing import List
 from amount_partition.models import Target
 
 class BudgetManagerClient(ABC):
+    
     @abstractmethod
     def list_balances(self) -> List[str]:
         """List all balance names."""
