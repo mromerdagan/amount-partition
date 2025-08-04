@@ -104,11 +104,17 @@ class BudgetShell(cmd.Cmd):
         table.add_column("Box", style="cyan")
         table.add_column("Goal", style="magenta", justify="right")
         table.add_column("Due", style="green")
+        table.add_column("Months Left", style="blue", justify="right")
+        table.add_column("Monthly Payment", style="magenta", justify="right")
         for target in targets:
-            name = target.get("boxname")
+            name = target.get("name")
             goal = target.get("goal")
             due = target.get("due")
-            table.add_row(str(name), str(goal), str(due))
+            months_left = target.get("months_left", "?")
+            monthly_payment = target.get("monthly_payment", "?")
+            table.add_row(
+                str(name), str(goal), str(due), str(months_left), f"{monthly_payment:.2f}" if isinstance(monthly_payment, float) else str(monthly_payment)
+            )
         console.print(table)
     
     def do_set_target(self, arg):

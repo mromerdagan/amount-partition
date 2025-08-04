@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Body, UploadFile, File
+from fastapi import FastAPI, HTTPException, Body, UploadFile, File, Query
 import json
 from typing import List
 from amount_partition.api import BudgetManagerApi
@@ -30,11 +30,23 @@ def deposit(req: DepositRequest, db_dir: str = "."):
     return {"free": manager.balances["free"]}
 
 @app.get("/targets", response_model=List[TargetResponse])
-def get_targets(db_dir: str = "."):
+def get_targets(
+        db_dir: str = ".", 
+        curr_month_payed: bool = Query(False, description="Has current month already been paid?")
+    ):
     manager = get_manager(db_dir)
-    targets = manager.get_targets()
-    print(targets)
-    return [TargetResponse(name=k, goal=v.goal, due=v.due.strftime("%Y-%m")) for k, v in targets.items()]
+    balances = manager.balances
+    targets: dict[str, Target] = manager.get_targets()
+    return [
+        TargetResponse(
+            name=name,
+            goal=target.goal,
+            due=target.due.strftime("%Y-%m"),
+            months_left=target.months_left(curr_month_payed),
+            monthly_payment=round(target.monthly_payment(balances.get(name, 0.0), curr_month_payed), 2)
+        )
+        for name, target in targets.items()
+    ]
 
 @app.post("/set_target")
 def set_target(req: SetTargetRequest, db_dir: str = "."):

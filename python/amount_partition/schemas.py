@@ -9,6 +9,8 @@ class TargetResponse(BaseModel):
     name: str
     goal: int
     due: str
+    months_left: int
+    monthly_payment: float
 
 class DepositRequest(BaseModel):
     amount: int
