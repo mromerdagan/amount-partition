@@ -32,7 +32,9 @@ def deposit(req: DepositRequest, db_dir: str = "."):
 @app.get("/targets", response_model=List[TargetResponse])
 def get_targets(db_dir: str = "."):
     manager = get_manager(db_dir)
-    return [TargetResponse(name=k, goal=v.goal, due=v.due.strftime("%Y-%m")) for k, v in manager.targets.items()]
+    targets = manager.get_targets()
+    print(targets)
+    return [TargetResponse(name=k, goal=v.goal, due=v.due.strftime("%Y-%m")) for k, v in targets.items()]
 
 @app.post("/set_target")
 def set_target(req: SetTargetRequest, db_dir: str = "."):

@@ -197,6 +197,10 @@ class BudgetManagerApi(object):
 		amounts = [self.balances[boxname] for boxname in self.balances]
 		return sum(amounts)
 
+	def get_targets(self) -> dict[str, Target]:
+		"""Return a dictionary of Target objects for each balance with a target."""
+		return {k: Target(goal=v.goal, due=v.due) for k, v in self.targets.items()}
+
 	def deposit(self, amount: int, merge_with_credit: bool = True) -> None:
 		"""Deposit an amount into 'free'. Optionally merge 'credit-spent'."""
 		self.balances['free'] += amount
