@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Body, UploadFile, File, Query
 import json
-from typing import List
+from typing import List, Dict
 from amount_partition.api import BudgetManagerApi
 from amount_partition.models import Target, PeriodicDeposit
 from amount_partition.schemas import (
@@ -12,10 +12,11 @@ app = FastAPI()
 def get_manager(db_dir: str) -> BudgetManagerApi:
     return BudgetManagerApi(db_dir)
 
-@app.get("/balances", response_model=List[BalanceResponse])
+@app.get("/balances", response_model=Dict[BalanceResponse])
 def get_balances(db_dir: str = "."):
+    """ Return balances as a dictionary of BalanceResponse """
     manager = get_manager(db_dir)
-    return [BalanceResponse(name=k, amount=v) for k, v in manager.balances.items()]
+    return {k: BalanceResponse(name=k, amount=v) for k, v in manager.balances.items()}
 
 @app.get("/list_balances")
 def list_balances(db_dir: str = "."):
@@ -29,24 +30,23 @@ def deposit(req: DepositRequest, db_dir: str = "."):
     manager.dump_data()
     return {"free": manager.balances["free"]}
 
-@app.get("/targets", response_model=List[TargetResponse])
+@app.get("/targets", response_model=Dict[TargetResponse])
 def get_targets(
         db_dir: str = ".", 
         curr_month_payed: bool = Query(False, description="Has current month already been paid?")
     ):
+    """ Return a dictionary of TargetResponse for each target """
     manager = get_manager(db_dir)
     balances = manager.balances
     targets: dict[str, Target] = manager.get_targets()
-    return [
-        TargetResponse(
-            name=name,
-            goal=target.goal,
-            due=target.due.strftime("%Y-%m"),
-            months_left=target.months_left(curr_month_payed),
-            monthly_payment=round(target.monthly_payment(balances.get(name, 0.0), curr_month_payed), 2)
-        )
-        for name, target in targets.items()
-    ]
+    return {name: TargetResponse(
+                name=name,
+                goal=target.goal,
+                due=target.due.strftime("%Y-%m"),
+                months_left=target.months_left(curr_month_payed),
+                monthly_payment=round(target.monthly_payment(balances.get(name, 0.0), curr_month_payed), 2)
+            ) for name, target in targets.items()
+    }
 
 @app.post("/set_target")
 def set_target(req: SetTargetRequest, db_dir: str = "."):

@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import List
-from amount_partition.models import Target
+from typing import List, Dict
+from amount_partition.models import Target, PeriodicDeposit
 
 class BudgetManagerClient(ABC):
     
@@ -10,8 +10,18 @@ class BudgetManagerClient(ABC):
         pass
     
     @abstractmethod
-    def get_balances(self) -> List[str]:
+    def get_balances(self) -> Dict[str]:
         """Retrieve all balance names."""
+        pass
+    
+    @abstractmethod
+    def get_targets(self) -> Dict[Target]:
+        """Retrieve all targets."""
+        pass
+    
+    @abstractmethod
+    def get_recurring(self) -> Dict[str, PeriodicDeposit]:
+        """Retrieve all recurring payments."""
         pass
 
     @abstractmethod

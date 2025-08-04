@@ -7,16 +7,24 @@ class RemoteBudgetManagerClient(BudgetManagerClient):
     def __init__(self, rest_api_url: str, db_path: str):
         self.api_url = rest_api_url
         self.db_path = db_path
+    
+    def list_balances(self):
+        response = requests.get(f"{self.api_url}/list_balances", params={"db_dir": self.db_path})
+        response.raise_for_status()
+        return response.json()
 
     def get_balances(self):
         response = requests.get(f"{self.api_url}/balances", params={"db_dir": self.db_path})
         response.raise_for_status()
         return response.json()
     
-    def list_balances(self):
-        response = requests.get(f"{self.api_url}/list_balances", params={"db_dir": self.db_path})
+    def get_targets(self):
+        response = requests.get(f"{self.api_url}/targets", params={"db_dir": self.db_path})
         response.raise_for_status()
         return response.json()
+    
+    def get_recurring(self):
+        raise NotImplementedError("Remote recurring payments not implemented yet")
     
     def deposit(self, amount: int, merge_with_credit: bool = False):
         data = {
@@ -24,11 +32,6 @@ class RemoteBudgetManagerClient(BudgetManagerClient):
             "merge_with_credit": merge_with_credit
         }
         response = requests.post(f"{self.api_url}/deposit", json=data, params={"db_dir": self.db_path})
-        response.raise_for_status()
-        return response.json()
-    
-    def get_targets(self):
-        response = requests.get(f"{self.api_url}/targets", params={"db_dir": self.db_path})
         response.raise_for_status()
         return response.json()
     
