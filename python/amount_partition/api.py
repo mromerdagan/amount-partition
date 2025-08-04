@@ -428,5 +428,3 @@ if __name__ == "__main__": ## DEBUG
 	homedir = os.environ['HOME']
 	DB = f"{homedir}/git/finance/partition-bp"
 	fp = BudgetManagerApi(DB)
-	#print(fp.get_total())
-	print(fp.locked_amount(1))
