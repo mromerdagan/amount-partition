@@ -1,10 +1,38 @@
 from dataclasses import dataclass
 from datetime import datetime
+from amount_partition.schemas import TargetResponse
 
 @dataclass
 class Target:
     goal: int
     due: datetime
+    
+    def to_target_response(self, name:str) -> 'TargetResponse':
+        return TargetResponse(
+            name=name,
+            goal=self.goal,
+            due=self.due.strftime("%Y-%m"),
+        )
+    
+    @classmethod
+    def from_target_response(cls, target_response: TargetResponse) -> 'Target':
+        return Target(
+            goal=target_response.goal,
+            due=datetime.strptime(target_response.due, "%Y-%m")
+        )
+    
+    def to_json(self) -> dict:
+        return {
+            "goal": self.goal,
+            "due": self.due.strftime("%Y-%m"),
+        }
+    
+    @classmethod
+    def from_json(cls, data: dict) -> 'Target':
+        return cls(
+            goal=data['goal'],
+            due=datetime.strptime(data['due'], "%Y-%m")
+        )
     
     def months_left(self, curr_month_payed: bool = False) -> int:
         today_ = datetime.today()
@@ -21,3 +49,7 @@ class Target:
 class PeriodicDeposit:
     amount: int
     target: int
+
+if __name__ == "__main__":
+    target = Target(goal=1000, due=datetime(2023, 12, 31))
+    print(target.as_dict())

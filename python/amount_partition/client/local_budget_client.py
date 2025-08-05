@@ -11,6 +11,9 @@ class LocalBudgetManagerClient(BudgetManagerClient):
 
     def get_balances(self):
         return self.manager.balances
+    
+    def get_targets(self):
+        return self.manager.get_targets()
 
     def deposit(self, amount: int, merge_with_credit: bool = False):
         self.manager.deposit(amount, merge_with_credit=merge_with_credit)
@@ -55,3 +58,22 @@ class LocalBudgetManagerClient(BudgetManagerClient):
     def create_db(self, db_dir: str):
         BudgetManagerApi.create_db(db_dir)
     
+    
+    # Stubs for missing parent methods
+    def export_json(self):
+        raise NotImplementedError("export_json is not implemented in LocalBudgetManagerClient.")
+
+    def import_json(self, data):
+        raise NotImplementedError("import_json is not implemented in LocalBudgetManagerClient.")
+
+    def to_json(self):
+        raise NotImplementedError("to_json is not implemented in LocalBudgetManagerClient.")
+
+    def from_json(self, db_dir, data):
+        raise NotImplementedError("from_json is not implemented in LocalBudgetManagerClient.")
+
+    def remove_target(self, boxname: str):
+        raise NotImplementedError("remove_target is not implemented in LocalBudgetManagerClient.")
+    
+    def get_recurring(self):
+        raise NotImplementedError("get_recurring is not implemented in LocalBudgetManagerClient.")  

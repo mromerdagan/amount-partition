@@ -10,12 +10,12 @@ class BudgetManagerClient(ABC):
         pass
     
     @abstractmethod
-    def get_balances(self) -> Dict[str]:
+    def get_balances(self) -> Dict[str, int]:
         """Retrieve all balance names."""
         pass
     
     @abstractmethod
-    def get_targets(self) -> Dict[Target]:
+    def get_targets(self) -> Dict[str, Target]:
         """Retrieve all targets."""
         pass
     

@@ -39,12 +39,36 @@ class BudgetShell(cmd.Cmd):
         table = Table(title="Balances")
         table.add_column("Box", style="cyan")
         table.add_column("Amount", style="magenta", justify="right")
+        print(balances)
 
-        for balance in balances:
-            name = balance.get("name")
-            amount = balance.get("amount", 0)
+        for name, amount in balances.items():
             table.add_row(name, f"{amount:.2f}")
 
+        console.print(table)
+    
+    def do_targets(self, arg):
+        parts = arg.strip().split()
+        curr_month_payed = True if len(parts) > 0 and parts[0] == "--curr-month-payed" else False
+                
+        "List all targets. Usage: list_targets"
+        table = Table(title="Targets")
+        table.add_column("Box", style="cyan")
+        table.add_column("Goal", style="magenta", justify="right")
+        table.add_column("Due", style="green")
+        table.add_column("Months Left", style="blue", justify="right")
+        table.add_column("Monthly Payment", style="magenta", justify="right")
+        
+        targets = self.client.get_targets()
+        print(targets)
+        for target_name, target in targets.items():
+            name = target_name
+            goal = target.goal
+            due = target.due.strftime("%Y-%m")
+            months_left = target.months_left(curr_month_payed)
+            monthly_payment = 300
+            table.add_row(
+                str(name), str(goal), str(due), str(months_left), f"{monthly_payment:.2f}" if isinstance(monthly_payment, float) else str(monthly_payment)
+            )
         console.print(table)
     
     def do_deposit(self, arg):
@@ -93,29 +117,6 @@ class BudgetShell(cmd.Cmd):
             return
         result = self.client.transfer_between_balances(from_box, to_box, amount)
         console.print(f"Transferred {amount} from {from_box} to {to_box}.")
-
-    def do_targets(self, arg):
-        "List all targets. Usage: list_targets"
-        if not hasattr(self.client, 'get_targets'):
-            console.print("[red]Target listing not supported by this client.[/red]")
-            return
-        targets = self.client.get_targets()
-        table = Table(title="Targets")
-        table.add_column("Box", style="cyan")
-        table.add_column("Goal", style="magenta", justify="right")
-        table.add_column("Due", style="green")
-        table.add_column("Months Left", style="blue", justify="right")
-        table.add_column("Monthly Payment", style="magenta", justify="right")
-        for target in targets:
-            name = target.get("name")
-            goal = target.get("goal")
-            due = target.get("due")
-            months_left = target.get("months_left", "?")
-            monthly_payment = target.get("monthly_payment", "?")
-            table.add_row(
-                str(name), str(goal), str(due), str(months_left), f"{monthly_payment:.2f}" if isinstance(monthly_payment, float) else str(monthly_payment)
-            )
-        console.print(table)
     
     def do_set_target(self, arg):
         "Set a target for a box. Usage: set_target <box> <goal> <due> (due format: YYYY-MM)"

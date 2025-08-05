@@ -70,10 +70,7 @@ class BudgetManagerApi(object):
 		partition = dict(self.balances)
 
 		# goals: {boxname: {"goal": int, "due": "YYYY-MM"}}
-		goals = {
-			k: {"goal": v.goal, "due": v.due.strftime("%Y-%m")}
-			for k, v in self.targets.items()
-		}
+		goals = {target_name: target.to_json() for target_name, target in self.targets.items()}
 
 		# periodic: {boxname: {"amount": int, "target": int}}
 		periodic = {
