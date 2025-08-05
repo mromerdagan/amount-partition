@@ -2,8 +2,8 @@ from collections import OrderedDict
 import requests
 from amount_partition.api import BudgetManagerApi
 from amount_partition.client.budget_manager_client import BudgetManagerClient
-from amount_partition.models import Target
-from amount_partition.schemas import TargetResponse
+from amount_partition.models import Target, PeriodicDeposit
+from amount_partition.schemas import TargetResponse, PeriodicDepositResponse
 
 class RemoteBudgetManagerClient(BudgetManagerClient):
 
@@ -19,7 +19,7 @@ class RemoteBudgetManagerClient(BudgetManagerClient):
     def get_balances(self):
         response = requests.get(f"{self.api_url}/balances", params={"db_dir": self.db_path})
         response.raise_for_status()
-        return OrderedDict({d["name"]: d["amount"] for d in response.json()})
+        return OrderedDict({balance_name: d["amount"] for balance_name, d in response.json().items()})
     
     def get_targets(self):
         response = requests.get(f"{self.api_url}/targets", params={"db_dir": self.db_path})
@@ -30,7 +30,12 @@ class RemoteBudgetManagerClient(BudgetManagerClient):
         }
     
     def get_recurring(self):
-        raise NotImplementedError("Remote recurring payments not implemented yet")
+        response = requests.get(f"{self.api_url}/recurring", params={"db_dir": self.db_path})
+        response.raise_for_status()
+        return {
+            name: PeriodicDeposit.from_periodic_deposit_response(PeriodicDepositResponse(**periodic_response))
+            for name, periodic_response in response.json().items()
+        }
     
     def deposit(self, amount: int, merge_with_credit: bool = False):
         data = {
@@ -40,6 +45,45 @@ class RemoteBudgetManagerClient(BudgetManagerClient):
         response = requests.post(f"{self.api_url}/deposit", json=data, params={"db_dir": self.db_path})
         response.raise_for_status()
         return response.json()
+    
+    def withdraw(self, amount: int = 0):
+        data = {"amount": amount}
+        response = requests.post(f"{self.api_url}/withdraw", json=data, params={"db_dir": self.db_path})
+        response.raise_for_status()
+        return response.json()
+    
+    def add_to_balance(self, boxname: str, amount: int):
+        data = {
+            "boxname": boxname,
+            "amount": amount
+        }
+        response = requests.post(f"{self.api_url}/add_to_balance", json=data, params={"db_dir": self.db_path})
+        response.raise_for_status()
+        return response.json()
+    
+    def spend(self, boxname: str, amount: int = 0, use_credit: bool = False):
+        data = {"boxname": boxname, "amount": amount, "use_credit": use_credit}
+        response = requests.post(f"{self.api_url}/spend", json=data, params={"db_dir": self.db_path})
+        response.raise_for_status()
+        return response.json()
+    
+    def transfer_between_balances(self, from_box: str, to_box: str, amount: int):
+        data = {"from_box": from_box, "to_box": to_box, "amount": amount}
+        response = requests.post(f"{self.api_url}/transfer_between_balances", json=data, params={"db_dir": self.db_path})
+        response.raise_for_status()
+        return response.json()
+
+    def new_box(self, boxname: str):
+        data = {"boxname": boxname}
+        response = requests.post(f"{self.api_url}/new_box", json=data, params={"db_dir": self.db_path})
+        response.raise_for_status()
+        return
+
+    def remove_box(self, boxname: str):
+        data = {"boxname": boxname}
+        response = requests.post(f"{self.api_url}/remove_box", json=data, params={"db_dir": self.db_path})
+        response.raise_for_status()
+        return
     
     def set_target(self, boxname: str, goal: int, due: str):
         data = {
@@ -51,37 +95,19 @@ class RemoteBudgetManagerClient(BudgetManagerClient):
         response.raise_for_status()
         return response.json()
     
-    def withdraw(self, amount: int = 0):
-        data = {"amount": amount}
-        response = requests.post(f"{self.api_url}/withdraw", json=data, params={"db_dir": self.db_path})
-        response.raise_for_status()
-        return response.json()
-    
-    
-    def add_to_balance(self, boxname: str, amount: int):
+    def set_recurring(self, boxname: str, monthly: int, target: int):
         data = {
             "boxname": boxname,
-            "amount": amount
+            "monthly": monthly,
+            "target": target
         }
-        response = requests.post(f"{self.api_url}/add_to_balance", json=data, params={"db_dir": self.db_path})
-        response.raise_for_status()
-        return response.json()
-
-    def new_box(self, boxname: str):
-        data = {"boxname": boxname}
-        response = requests.post(f"{self.api_url}/new_box", json=data, params={"db_dir": self.db_path})
-        response.raise_for_status()
-        return response.json()
-
-    def remove_box(self, boxname: str):
-        data = {"boxname": boxname}
-        response = requests.post(f"{self.api_url}/remove_box", json=data, params={"db_dir": self.db_path})
+        response = requests.post(f"{self.api_url}/set_recurring", json=data, params={"db_dir": self.db_path})
         response.raise_for_status()
         return response.json()
     
-    def transfer_between_balances(self, from_box: str, to_box: str, amount: int):
-        data = {"from_box": from_box, "to_box": to_box, "amount": amount}
-        response = requests.post(f"{self.api_url}/transfer_between_balances", json=data, params={"db_dir": self.db_path})
+    def remove_recurring(self, boxname: str):
+        data = {"boxname": boxname}
+        response = requests.post(f"{self.api_url}/remove_recurring", json=data, params={"db_dir": self.db_path})
         response.raise_for_status()
         return response.json()
 
@@ -97,11 +123,5 @@ class RemoteBudgetManagerClient(BudgetManagerClient):
     def create_db(self, db_dir: str):
         data = {"location": db_dir}
         response = requests.post(f"{self.api_url}/create_db", json=data)
-        response.raise_for_status()
-        return response.json()
-    
-    def spend(self, boxname: str, amount: int = 0, use_credit: bool = False):
-        data = {"boxname": boxname, "amount": amount, "use_credit": use_credit}
-        response = requests.post(f"{self.api_url}/spend", json=data, params={"db_dir": self.db_path})
         response.raise_for_status()
         return response.json()

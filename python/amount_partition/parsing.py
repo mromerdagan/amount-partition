@@ -48,13 +48,13 @@ def parse_recurring_line(line: str) -> tuple[str, PeriodicDeposit]:
     """Parse a line from the periodic file into (boxname, PeriodicDeposit)."""
     parts = line.split()
     if len(parts) == 3:
-        boxname, p, target = parts
+        boxname, monthly, target = parts
     elif len(parts) == 2:
-        boxname, p = parts
+        boxname, monthly = parts
         target = 0
     else:
         raise ValueError(f"Malformed line in periodic file: '{line}'. Expected format: '<boxname> <amount> <target>' or '<boxname> <amount>'")
-    return boxname, PeriodicDeposit(int(p), int(target))
+    return boxname, PeriodicDeposit(int(monthly), int(target))
 
 def parse_recurring_file(recurring_path: pathlib.Path) -> dict[str, PeriodicDeposit]:
     if not recurring_path.exists():

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
-from amount_partition.schemas import TargetResponse
+from amount_partition.schemas import TargetResponse, PeriodicDepositResponse
 
 @dataclass
 class Target:
@@ -49,6 +49,33 @@ class Target:
 class PeriodicDeposit:
     amount: int
     target: int
+    
+    def to_periodic_deposit_response(self, name: str) -> PeriodicDepositResponse:
+        return PeriodicDepositResponse(
+            name=name,
+            amount=self.amount,
+            target=self.target
+        )
+    
+    @classmethod
+    def from_periodic_deposit_response(cls, periodic_response: PeriodicDepositResponse) -> 'PeriodicDeposit':
+        return cls(
+            amount=periodic_response.amount,
+            target=periodic_response.target
+        )
+    
+    def to_json(self) -> dict:
+        return {
+            "amount": self.amount,
+            "target": self.target
+        }
+    
+    @classmethod
+    def from_json(cls, data: dict) -> 'PeriodicDeposit':
+        return cls(
+            amount=data['amount'],
+            target=data['target']
+        )
 
 if __name__ == "__main__":
     target = Target(goal=1000, due=datetime(2023, 12, 31))

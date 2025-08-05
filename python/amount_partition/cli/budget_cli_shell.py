@@ -47,6 +47,7 @@ class BudgetShell(cmd.Cmd):
         console.print(table)
     
     def do_targets(self, arg):
+        " List all targets. Usage: list_targets [--curr-month-payed]"
         parts = arg.strip().split()
         curr_month_payed = True if len(parts) > 0 and parts[0] == "--curr-month-payed" else False
                 
@@ -55,21 +56,42 @@ class BudgetShell(cmd.Cmd):
         table.add_column("Box", style="cyan")
         table.add_column("Goal", style="magenta", justify="right")
         table.add_column("Due", style="green")
+        table.add_column("Current Balance", style="yellow", justify="right")
         table.add_column("Months Left", style="blue", justify="right")
         table.add_column("Monthly Payment", style="magenta", justify="right")
         
         targets = self.client.get_targets()
-        print(targets)
+        balances = self.client.get_balances()
         for target_name, target in targets.items():
             name = target_name
             goal = target.goal
             due = target.due.strftime("%Y-%m")
+            current_balance = balances.get(target_name, 0.0)
             months_left = target.months_left(curr_month_payed)
-            monthly_payment = 300
+            monthly_payment = target.monthly_payment(balance=current_balance, curr_month_payed=curr_month_payed)
             table.add_row(
-                str(name), str(goal), str(due), str(months_left), f"{monthly_payment:.2f}" if isinstance(monthly_payment, float) else str(monthly_payment)
+                str(name), str(goal), str(due), str(current_balance), str(months_left), f"{monthly_payment:.2f}" if isinstance(monthly_payment, float) else str(monthly_payment)
             )
         console.print(table)
+    
+    def do_recurring(self, arg):
+        "List all recurring deposits"
+        table = Table(title="Recurring Deposits")
+        table.add_column("Name", style="cyan")
+        table.add_column("Amount", style="magenta", justify="right")
+        table.add_column("Target", style="green")
+        table.add_column("Current Balance", style="yellow", justify="right")
+        
+        recurring = self.client.get_recurring()
+        balances = self.client.get_balances()
+        for name, periodic in recurring.items():
+            amount = periodic.amount
+            target = periodic.target
+            current_balance = balances.get(name, 0.0)
+            table.add_row(
+                str(name), f"{amount:.2f}", str(target), f"{current_balance:.2f}"
+            )
+        console.print(table)   
     
     def do_deposit(self, arg):
         "Deposit an amount into 'free'. Usage: deposit <amount> [--merge-with-credit]"
@@ -100,6 +122,39 @@ class BudgetShell(cmd.Cmd):
         result = self.client.withdraw(amount)
         console.print(f"Withdrew {amount}. New free balance: {result.get('free', '?')}")
 
+    def do_add(self, arg):
+        "Add amount to a box. Usage: add_to_balance <box> <amount>"
+        parts = arg.strip().split()
+        if len(parts) != 2:
+            console.print("[red]Usage: add_to_balance <box> <amount>[/red]")
+            return
+        box, amount = parts
+        try:
+            amount = int(amount)
+        except Exception:
+            console.print("[red]Amount must be an integer.[/red]")
+            return
+        result = self.client.add_to_balance(box, amount)
+        console.print(f"Added {amount} to {box}. New balance: {result.get('balance', '?')}")  
+    
+    def do_spend(self, arg):
+        "Spend amount from a box. Usage: spend <box> <amount> [--use-credit]"
+        parts = arg.strip().split()
+        if len(parts) not in (2, 3):
+            console.print("[red]Usage: spend <box> <amount> [--use-credit][/red]")
+            return
+        box, amount = parts[0], parts[1]
+        use_credit = False
+        if len(parts) == 3 and parts[2] == "--use-credit":
+            use_credit = True
+        try:
+            amount = int(amount)
+        except Exception:
+            console.print("[red]Amount must be an integer.[/red]")
+            return
+        result = self.client.spend(box, amount, use_credit=use_credit)
+        console.print(f"Spent {amount} from {box}. New balance: {result.get('balance', '?')}")
+
     def do_transfer(self, arg):
         "Transfer amount from one box to another. Usage: transfer <from> <to> <amount>"
         parts = arg.strip().split()
@@ -117,6 +172,34 @@ class BudgetShell(cmd.Cmd):
             return
         result = self.client.transfer_between_balances(from_box, to_box, amount)
         console.print(f"Transferred {amount} from {from_box} to {to_box}.")
+
+    def do_new_box(self, arg):
+        "Create a new box. Usage: new_box <box>"
+        box = arg.strip()
+        if not box:
+            console.print("[red]Usage: new_box <box>[/red]")
+            return
+        try:
+            self.client.new_box(box)   
+        except Exception as e:
+            console.print(f"[red]Error creating box '{box}': {e}[/red]")
+            return
+        # if we reach here, it means the box was created successfully
+        console.print(f"Created new box '{box}'")
+
+    def do_remove_box(self, arg):
+        "Remove a box. Usage: remove_box <box>"
+        box = arg.strip()
+        if not box:
+            console.print("[red]Usage: remove_box <box>[/red]")
+            return
+        try:
+            self.client.remove_box(box)
+        except Exception as e:
+            console.print(f"[red]Error removing box '{box}': {e}[/red]")
+            return
+        # if we reach here, it means the box was removed successfully
+        console.print(f"Removed box '{box}'")
     
     def do_set_target(self, arg):
         "Set a target for a box. Usage: set_target <box> <goal> <due> (due format: YYYY-MM)"
@@ -145,58 +228,45 @@ class BudgetShell(cmd.Cmd):
             return
         
         result = self.client.set_target(box, goal, due)
-        console.print(f"Set target for {box}: {goal} by {due}. Result: {result}")    
+        console.print(f"Set target for {box}: {goal} by {due}. Result: {result}")
     
-    def do_spend(self, arg):
-        "Spend amount from a box. Usage: spend <box> <amount> [--use-credit]"
+    def do_set_recurring(self, arg):
+        "Set a recurring deposit for a box. Usage: set_recurring <box> <monthly> <target>"
         parts = arg.strip().split()
-        if len(parts) not in (2, 3):
-            console.print("[red]Usage: spend <box> <amount> [--use-credit][/red]")
+        if len(parts) != 3:
+            console.print("[red]Usage: set_recurring <box> <monthly> <target>[/red]")
             return
-        box, amount = parts[0], parts[1]
-        use_credit = False
-        if len(parts) == 3 and parts[2] == "--use-credit":
-            use_credit = True
+        box, monthly, target = parts
+        
+        # validate box exists
+        if box not in self.client.list_balances():
+            console.print(f"[red]Box '{box}' does not exist.[/red]")
+            return
+        
+        # validate monthly and target are integers
         try:
-            amount = int(amount)
+            monthly = int(monthly)
+            target = int(target)
         except Exception:
-            console.print("[red]Amount must be an integer.[/red]")
+            console.print("[red]Monthly and target must be integers.[/red]")
             return
-        result = self.client.spend(box, amount, use_credit=use_credit)
-        console.print(f"Spent {amount} from {box}. New balance: {result.get('balance', '?')}")
-
-    def do_add(self, arg):
-        "Add amount to a box. Usage: add_to_balance <box> <amount>"
-        parts = arg.strip().split()
-        if len(parts) != 2:
-            console.print("[red]Usage: add_to_balance <box> <amount>[/red]")
-            return
-        box, amount = parts
-        try:
-            amount = int(amount)
-        except Exception:
-            console.print("[red]Amount must be an integer.[/red]")
-            return
-        result = self.client.add_to_balance(box, amount)
-        console.print(f"Added {amount} to {box}. New balance: {result.get('balance', '?')}")
-
-    def do_new_box(self, arg):
-        "Create a new box. Usage: new_box <box>"
+        
+        result = self.client.set_recurring(box, monthly, target)
+        console.print(f"Set recurring for {box}: {monthly} monthly towards {target}")
+    
+    def do_remove_recurring(self, arg):
+        "Remove a recurring deposit for a box. Usage: remove_recurring <box>"
         box = arg.strip()
         if not box:
-            console.print("[red]Usage: new_box <box>[/red]")
+            console.print("[red]Usage: remove_recurring <box>[/red]")
             return
-        result = self.client.new_box(box)
-        console.print(f"Created new box '{box}'. Result: {result}")
-
-    def do_remove_box(self, arg):
-        "Remove a box. Usage: remove_box <box>"
-        box = arg.strip()
-        if not box:
-            console.print("[red]Usage: remove_box <box>[/red]")
+        try:
+            self.client.remove_recurring(box)
+        except Exception as e:
+            console.print(f"[red]Error removing recurring for box '{box}': {e}[/red]")
             return
-        result = self.client.remove_box(box)
-        console.print(f"Removed box '{box}'. Result: {result}")
+        # if we reach here, it means the recurring was removed successfully
+        console.print(f"Removed recurring for box '{box}'")
 
     def do_new_loan(self, arg):
         "Create a new loan. Usage: new_loan <amount> <due>"

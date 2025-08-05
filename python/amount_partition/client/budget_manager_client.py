@@ -35,18 +35,38 @@ class BudgetManagerClient(ABC):
         pass
 
     @abstractmethod
-    def spend(self, boxname: str, amount: int = None, use_credit: bool = False):
-        """Spend from a specific balance or all if no amount is specified."""
-        pass
-
-    @abstractmethod
     def add_to_balance(self, boxname: str, amount: int):
         """Add an amount to a specific balance."""
         pass
 
     @abstractmethod
+    def spend(self, boxname: str, amount: int = None, use_credit: bool = False):
+        """Spend from a specific balance or all if no amount is specified."""
+        pass
+
+    @abstractmethod
+    def transfer_between_balances(self, from_box: str, to_box: str, amount: int):
+        """Transfer amount from one balance to another."""
+        pass
+
+    @abstractmethod
     def set_target(self, boxname: str, goal: int, due: str):
         """Set a target for a specific balance."""
+        pass
+    
+    @abstractmethod
+    def remove_target(self, name: str):
+        """Remove a target by its name."""
+        pass
+    
+    @abstractmethod
+    def set_recurring(self, boxname: str, monthly: int, target: int):
+        """Set a recurring deposit for a specific balance."""
+        pass
+    
+    @abstractmethod
+    def remove_recurring(self, boxname: str):
+        """Remove a recurring deposit for a specific balance."""
         pass
 
     @abstractmethod
@@ -57,11 +77,6 @@ class BudgetManagerClient(ABC):
     @abstractmethod
     def remove_box(self, boxname: str):
         """Remove a balance and transfer its amount to 'free'."""
-        pass
-
-    @abstractmethod
-    def transfer_between_balances(self, from_box: str, to_box: str, amount: int):
-        """Transfer amount from one balance to another."""
         pass
 
     @abstractmethod

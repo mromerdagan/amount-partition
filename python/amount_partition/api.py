@@ -73,10 +73,7 @@ class BudgetManagerApi(object):
 		goals = {target_name: target.to_json() for target_name, target in self.targets.items()}
 
 		# periodic: {boxname: {"amount": int, "target": int}}
-		periodic = {
-			k: {"amount": v.amount, "target": v.target}
-			for k, v in self.recurring.items()
-		}
+		periodic = {recurring_name: recurring.to_json() for recurring_name, recurring in self.recurring.items()}
 
 		return {"partition": partition, "goals": goals, "periodic": periodic}
 
@@ -154,6 +151,10 @@ class BudgetManagerApi(object):
 	def get_targets(self) -> dict[str, Target]:
 		"""Return a dictionary of Target objects for each balance with a target."""
 		return {k: Target(goal=v.goal, due=v.due) for k, v in self.targets.items()}
+
+	def get_recurring(self) -> dict[str, PeriodicDeposit]:
+		"""Return a dictionary of PeriodicDeposit objects for each balance with a recurring deposit."""
+		return {k: PeriodicDeposit(amount=v.amount, target=v.target) for k, v in self.recurring.items()}
 
 	def deposit(self, amount: int, merge_with_credit: bool = True) -> None:
 		"""Deposit an amount into 'free'. Optionally merge 'credit-spent'."""
@@ -252,6 +253,7 @@ class BudgetManagerApi(object):
 		del(self.targets[boxname])
 	
 	def target_monthly_deposit(self, boxname: str, after_monthly_deposit: bool) -> int:
+		# TODO: Replace this function with Target method
 		"""Calculate the required monthly deposit to reach a target by its due date."""
 		target = self.targets[boxname]
 		goal = target.goal
@@ -284,6 +286,7 @@ class BudgetManagerApi(object):
 		del(self.recurring[boxname])
 	
 	def _periodic_months_left(self, boxname: str) -> int:
+		# TODO: implement in PeriodicDeposit as a method
 		"""Return the number of months left to reach the recurring target for a balance."""
 		missing = self.recurring[boxname].target - self.balances[boxname]
 		left = missing / self.recurring[boxname].amount
