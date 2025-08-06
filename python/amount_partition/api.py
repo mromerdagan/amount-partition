@@ -3,8 +3,8 @@ import math
 from pathlib import Path
 from datetime import datetime, timedelta
 from collections import OrderedDict
-from .parsing import parse_balance_line, parse_target_line, parse_periodic_line, extract_lines
-from .models import Target, PeriodicDeposit
+from amount_partition.parsing import parse_balances_file, parse_targets_file, parse_recurring_file
+from amount_partition.models import Target, PeriodicDeposit
 
 DEPOSIT_DAY = 10  # Day of month after which deposit is considered done
 DAYS_IN_MONTH = 30  # Used for monthly calculations
@@ -14,9 +14,9 @@ class BudgetManagerApi(object):
 	def __init__(self, db_dir: str) -> None:
 		"""Initialize AmountPartition with a database directory."""
 		self.db_dir = Path(db_dir)
-		self.partition_path = self.db_dir / 'partition'
-		self.goals_path = self.db_dir / 'goals'
-		self.periodic_path = self.db_dir / 'periodic'
+		self.balances_path = self.db_dir / 'partition'
+		self.targets_path = self.db_dir / 'goals'
+		self.recurring_path = self.db_dir / 'periodic'
 
 		# Initialize data structures - will get values at setup()
 		self.balances = OrderedDict()
@@ -33,16 +33,18 @@ class BudgetManagerApi(object):
 		if self.balances or self.targets or self.recurring:
 			raise RuntimeError('Setup has already been run before. The balances, targets, or recurring data structures are not empty. This likely indicates a logic error or repeated initialization.')
 
-		if not(self.partition_path.exists()): # Initialize new balances
-			with self.partition_path.open('w') as fh:
+		if not(self.balances_path.exists()): # Initialize new balances
+			with self.balances_path.open('w') as fh:
 				fh.close()
 			self.new_box('free')
 			self.new_box('credit-spent')
 			self.dump_data()
 		else: # Load existing partition
 			try:
-				self._read_all_data()
-			except Exception as e:
+				self.balances = parse_balances_file(self.balances_path)
+				self.targets = parse_targets_file(self.targets_path)
+				self.recurring = parse_recurring_file(self.recurring_path)
+			except Exception as e:			
 				raise RuntimeError(f"Failed to read partition data from {self.db_dir}: {e}") from e
 	
 
@@ -68,16 +70,10 @@ class BudgetManagerApi(object):
 		partition = dict(self.balances)
 
 		# goals: {boxname: {"goal": int, "due": "YYYY-MM"}}
-		goals = {
-			k: {"goal": v.goal, "due": v.due.strftime("%Y-%m")}
-			for k, v in self.targets.items()
-		}
+		goals = {target_name: target.to_json() for target_name, target in self.targets.items()}
 
 		# periodic: {boxname: {"amount": int, "target": int}}
-		periodic = {
-			k: {"amount": v.amount, "target": v.target}
-			for k, v in self.recurring.items()
-		}
+		periodic = {recurring_name: recurring.to_json() for recurring_name, recurring in self.recurring.items()}
 
 		return {"partition": partition, "goals": goals, "periodic": periodic}
 
@@ -110,62 +106,17 @@ class BudgetManagerApi(object):
 		instance.dump_data()
 		return instance
 
-	def _read_partition(self) -> None:
-		"""Read balances data from file into self.balances."""
-		raw = self.partition_path.read_text()
-		lines = extract_lines(raw)
-		for line in lines:
-			try:
-				boxname, amount = parse_balance_line(line)
-				self.balances[boxname] = amount
-			except ValueError as e:
-				raise ValueError(f"Malformed line in partition file: '{line}'. Expected format: '<boxname> <size>'") from e
-
-	def _read_goals(self) -> None:
-		"""Read targets data from file into self.targets."""
-		if not(self.goals_path.exists()):
-			return
-
-		raw = self.goals_path.read_text()
-		lines = extract_lines(raw)
-		for line in lines:
-			try:
-				boxname, target = parse_target_line(line)
-				self.targets[boxname] = target
-			except ValueError as e:
-				raise ValueError(f"Malformed line in goals file: '{line}'. Expected format: '<boxname> <goal> <due YYYY-MM>'") from e
-
-	def _read_periodic(self) -> None:
-		"""Read recurring deposit data from file into self.recurring."""
-		if not(self.periodic_path.exists()):
-			return
-
-		raw = self.periodic_path.read_text()
-		lines = extract_lines(raw)
-		for line in lines:
-			try:
-				boxname, periodic = parse_periodic_line(line)
-				self.recurring[boxname] = periodic
-			except ValueError as e:
-				raise ValueError(f"Malformed line in periodic file: '{line}'. Expected format: '<boxname> <amount> <target>' or '<boxname> <amount>'") from e
-
-	def _read_all_data(self) -> None:
-		"""Read all data files (partition, goals, periodic) into their respective structures."""
-		self._read_partition()
-		self._read_goals()
-		self._read_periodic()
-
 	def dump_data(self) -> None:
 		"""Write current partition, goals, and periodic data to files."""
-		t = self.db_dir / (self.partition_path.name + '.new')
+		t = self.db_dir / (self.balances_path.name + '.new')
 		with t.open('w') as fh:
 			for target in self.balances:
 				line = "{:<20} {}\n".format(target, self.balances[target])
 				fh.write(line)
-		t.replace(self.partition_path)
+		t.replace(self.balances_path)
 
 		if self.targets:
-			t = self.db_dir / (self.goals_path.name + '.new')
+			t = self.db_dir / (self.targets_path.name + '.new')
 			with t.open('w') as fh:
 				for target in self.targets:
 					line = "{:<20} {:<15} {}\n".format(\
@@ -174,10 +125,10 @@ class BudgetManagerApi(object):
 							self.targets[target].due.strftime('%Y-%m') \
 							)
 					fh.write(line)
-			t.replace(self.goals_path)
+			t.replace(self.targets_path)
 
 		if self.recurring:
-			t = self.db_dir / (self.periodic_path.name + '.new')
+			t = self.db_dir / (self.recurring_path.name + '.new')
 			with t.open('w') as fh:
 				for target in self.recurring:
 					line = "{:<20} {:<10} {}\n".format(\
@@ -186,7 +137,7 @@ class BudgetManagerApi(object):
 							self.recurring[target].target, \
 							)
 					fh.write(line)
-			t.replace(self.periodic_path)
+			t.replace(self.recurring_path)
    
 	def list_balances(self) -> list[str]:
 		"""Return a list of balance names."""
@@ -196,6 +147,14 @@ class BudgetManagerApi(object):
 		"""Return the total sum of all balances."""
 		amounts = [self.balances[boxname] for boxname in self.balances]
 		return sum(amounts)
+
+	def get_targets(self) -> dict[str, Target]:
+		"""Return a dictionary of Target objects for each balance with a target."""
+		return {k: Target(goal=v.goal, due=v.due) for k, v in self.targets.items()}
+
+	def get_recurring(self) -> dict[str, PeriodicDeposit]:
+		"""Return a dictionary of PeriodicDeposit objects for each balance with a recurring deposit."""
+		return {k: PeriodicDeposit(amount=v.amount, target=v.target) for k, v in self.recurring.items()}
 
 	def deposit(self, amount: int, merge_with_credit: bool = True) -> None:
 		"""Deposit an amount into 'free'. Optionally merge 'credit-spent'."""
@@ -216,7 +175,7 @@ class BudgetManagerApi(object):
 	def spend(self, boxname: str, amount: int = 0, use_credit: bool = False) -> None:
 		"""Spend an amount from a balance. If use_credit, add to 'credit-spent'."""
 		if not(boxname in self.balances):
-			raise KeyError(f"Key '{boxname}' is missing from balances (defined at '{self.partition_path}')")
+			raise KeyError(f"Key '{boxname}' is missing from balances (defined at '{self.balances_path}')")
 		if not(amount):
 			amount = self.balances[boxname]
 
@@ -230,7 +189,7 @@ class BudgetManagerApi(object):
 	def add_to_balance(self, boxname: str, amount: int) -> None:
 		"""Increase a balance by amount, decreasing 'free' by the same amount."""
 		if not(boxname in self.balances):
-			raise KeyError(f"Key '{boxname}' is missing from database ('{self.partition_path}')")
+			raise KeyError(f"Key '{boxname}' is missing from database ('{self.balances_path}')")
 		if amount > self.balances['free']:
 			raise ValueError(f"Trying to add amount larger than available at 'free' (free={self.balances['free']})")
 
@@ -241,7 +200,7 @@ class BudgetManagerApi(object):
 		"""Transfer amount from one balance to another."""
 		for boxname in [from_box, to_box]:
 			if not(boxname in self.balances):
-				raise KeyError(f"Key '{boxname}' is missing from database ('{self.partition_path}')")
+				raise KeyError(f"Key '{boxname}' is missing from database ('{self.balances_path}')")
 
 		if amount > self.balances[from_box]:
 			raise ValueError(f'Amount in source balance not sufficient (existing amount: {self.balances[from_box]})')
@@ -253,13 +212,13 @@ class BudgetManagerApi(object):
 	def new_box(self, boxname: str) -> None:
 		"""Create a new balance with the given name and zero value."""
 		if boxname in self.balances:
-			raise KeyError(f"Key '{boxname}' is already in database ('{self.partition_path}')")
+			raise KeyError(f"Key '{boxname}' is already in database ('{self.balances_path}')")
 		self.balances[boxname] = 0
 
 	def remove_box(self, boxname: str) -> None:
 		"""Remove a balance and transfer its amount to 'free'. Also remove related targets and recurring entries."""
 		if not(boxname in self.balances):
-			raise KeyError(f"Key '{boxname}' is missing from database ('{self.partition_path}')")
+			raise KeyError(f"Key '{boxname}' is missing from database ('{self.balances_path}')")
 		self.spend(boxname)
 		del(self.balances[boxname])
 
@@ -290,10 +249,11 @@ class BudgetManagerApi(object):
 	def remove_target(self, boxname: str) -> None:
 		"""Remove a target for the given balance."""
 		if not(boxname in self.targets):
-			raise KeyError(f"Key '{boxname}' is missing from targets ('{self.goals_path}')")
+			raise KeyError(f"Key '{boxname}' is missing from targets ('{self.targets_path}')")
 		del(self.targets[boxname])
 	
 	def target_monthly_deposit(self, boxname: str, after_monthly_deposit: bool) -> int:
+		# TODO: Replace this function with Target method
 		"""Calculate the required monthly deposit to reach a target by its due date."""
 		target = self.targets[boxname]
 		goal = target.goal
@@ -322,10 +282,11 @@ class BudgetManagerApi(object):
 	def remove_recurring(self, boxname: str) -> None:
 		"""Remove a recurring deposit for the given balance."""
 		if not(boxname in self.recurring):
-			raise KeyError(f"Key '{boxname}' is missing from recurring deposits ('{self.periodic_path}')")
+			raise KeyError(f"Key '{boxname}' is missing from recurring deposits ('{self.recurring_path}')")
 		del(self.recurring[boxname])
 	
 	def _periodic_months_left(self, boxname: str) -> int:
+		# TODO: implement in PeriodicDeposit as a method
 		"""Return the number of months left to reach the recurring target for a balance."""
 		missing = self.recurring[boxname].target - self.balances[boxname]
 		left = missing / self.recurring[boxname].amount
@@ -393,7 +354,7 @@ class BudgetManagerApi(object):
 			raise ValueError(f"Cannot apply suggestion- missing {missing} in 'free'")
 		for boxname in suggestion:
 			if boxname not in self.balances:
-				raise KeyError(f"Key '{boxname}' is missing from database ('{self.partition_path}')")
+				raise KeyError(f"Key '{boxname}' is missing from database ('{self.balances_path}')")
 			self.add_to_balance(boxname, suggestion[boxname])
 	
 	# Reserved funds for future targets
@@ -424,5 +385,3 @@ if __name__ == "__main__": ## DEBUG
 	homedir = os.environ['HOME']
 	DB = f"{homedir}/git/finance/partition-bp"
 	fp = BudgetManagerApi(DB)
-	#print(fp.get_total())
-	print(fp.locked_amount(1))

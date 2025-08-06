@@ -1,16 +1,27 @@
 from abc import ABC, abstractmethod
-from typing import List
-from amount_partition.models import Target
+from typing import List, Dict
+from amount_partition.models import Target, PeriodicDeposit
 
 class BudgetManagerClient(ABC):
+    
     @abstractmethod
     def list_balances(self) -> List[str]:
         """List all balance names."""
         pass
     
     @abstractmethod
-    def get_balances(self) -> List[str]:
+    def get_balances(self) -> Dict[str, int]:
         """Retrieve all balance names."""
+        pass
+    
+    @abstractmethod
+    def get_targets(self) -> Dict[str, Target]:
+        """Retrieve all targets."""
+        pass
+    
+    @abstractmethod
+    def get_recurring(self) -> Dict[str, PeriodicDeposit]:
+        """Retrieve all recurring payments."""
         pass
 
     @abstractmethod
@@ -24,18 +35,38 @@ class BudgetManagerClient(ABC):
         pass
 
     @abstractmethod
-    def spend(self, boxname: str, amount: int = None, use_credit: bool = False):
-        """Spend from a specific balance or all if no amount is specified."""
-        pass
-
-    @abstractmethod
     def add_to_balance(self, boxname: str, amount: int):
         """Add an amount to a specific balance."""
         pass
 
     @abstractmethod
+    def spend(self, boxname: str, amount: int = None, use_credit: bool = False):
+        """Spend from a specific balance or all if no amount is specified."""
+        pass
+
+    @abstractmethod
+    def transfer_between_balances(self, from_box: str, to_box: str, amount: int):
+        """Transfer amount from one balance to another."""
+        pass
+
+    @abstractmethod
     def set_target(self, boxname: str, goal: int, due: str):
         """Set a target for a specific balance."""
+        pass
+    
+    @abstractmethod
+    def remove_target(self, name: str):
+        """Remove a target by its name."""
+        pass
+    
+    @abstractmethod
+    def set_recurring(self, boxname: str, monthly: int, target: int):
+        """Set a recurring deposit for a specific balance."""
+        pass
+    
+    @abstractmethod
+    def remove_recurring(self, boxname: str):
+        """Remove a recurring deposit for a specific balance."""
         pass
 
     @abstractmethod

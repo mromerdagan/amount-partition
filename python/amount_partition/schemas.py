@@ -10,6 +10,11 @@ class TargetResponse(BaseModel):
     goal: int
     due: str
 
+class PeriodicDepositResponse(BaseModel):
+    name: str
+    amount: int
+    target: int
+
 class DepositRequest(BaseModel):
     amount: int
     merge_with_credit: Optional[bool] = True
@@ -18,6 +23,17 @@ class SetTargetRequest(BaseModel):
     boxname: str
     goal: int
     due: str  # YYYY-MM
+
+class RemoveTargetRequest(BaseModel):
+    name: str
+
+class SetRecurringRequest(BaseModel):
+    boxname: str
+    monthly: int
+    target: int
+
+class RemoveRecurringRequest(BaseModel):
+    boxname: str
 
 class WithdrawRequest(BaseModel):
     amount: int = 0

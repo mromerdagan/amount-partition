@@ -1,10 +1,10 @@
-from fastapi import FastAPI, HTTPException, Body, UploadFile, File
+from fastapi import FastAPI, HTTPException, Body, UploadFile, File, Query
 import json
-from typing import List
+from typing import List, Dict
 from amount_partition.api import BudgetManagerApi
 from amount_partition.models import Target, PeriodicDeposit
 from amount_partition.schemas import (
-    BalanceResponse, TargetResponse, DepositRequest, SetTargetRequest, WithdrawRequest, SpendRequest, AddToBalanceRequest, TransferRequest, NewBoxRequest, RemoveBoxRequest, NewLoanRequest, CreateDbRequest
+    BalanceResponse, TargetResponse, PeriodicDepositResponse, DepositRequest, SetTargetRequest, RemoveTargetRequest, SetRecurringRequest, RemoveRecurringRequest, WithdrawRequest, SpendRequest, AddToBalanceRequest, TransferRequest, NewBoxRequest, RemoveBoxRequest, NewLoanRequest, CreateDbRequest
 )
 
 app = FastAPI()
@@ -12,15 +12,36 @@ app = FastAPI()
 def get_manager(db_dir: str) -> BudgetManagerApi:
     return BudgetManagerApi(db_dir)
 
-@app.get("/balances", response_model=List[BalanceResponse])
-def get_balances(db_dir: str = "."):
-    manager = get_manager(db_dir)
-    return [BalanceResponse(name=k, amount=v) for k, v in manager.balances.items()]
-
 @app.get("/list_balances")
-def get_balance_names(db_dir: str = "."):
+def list_balances(db_dir: str = "."):
     manager = get_manager(db_dir)
     return manager.list_balances()
+
+@app.get("/balances", response_model=Dict[str, BalanceResponse])
+def get_balances(db_dir: str = "."):
+    """ Return balances as a dictionary of BalanceResponse """
+    manager = get_manager(db_dir)
+    return {k: BalanceResponse(name=k, amount=v) for k, v in manager.balances.items()}
+
+@app.get("/targets", response_model=Dict[str, TargetResponse])
+def get_targets(db_dir: str = "."):
+    """ Return a dictionary of TargetResponse for each target """
+    manager = get_manager(db_dir)
+    targets: dict[str, Target] = manager.get_targets()
+    return {
+        name: target.to_target_response(name=name) 
+        for name, target in targets.items()
+    }
+
+@app.get("/recurring", response_model=Dict[str, PeriodicDepositResponse])
+def get_recurring(db_dir: str = "."):
+    """ Return a dictionary of PeriodicDeposit for each recurring deposit """
+    manager = get_manager(db_dir)
+    recurring: dict[str, PeriodicDeposit] = manager.get_recurring()
+    return {
+        name: periodic.to_periodic_deposit_response(name=name) 
+        for name, periodic in recurring.items()
+    }
 
 @app.post("/deposit")
 def deposit(req: DepositRequest, db_dir: str = "."):
@@ -29,18 +50,6 @@ def deposit(req: DepositRequest, db_dir: str = "."):
     manager.dump_data()
     return {"free": manager.balances["free"]}
 
-@app.get("/targets", response_model=List[TargetResponse])
-def get_targets(db_dir: str = "."):
-    manager = get_manager(db_dir)
-    return [TargetResponse(name=k, goal=v.goal, due=v.due.strftime("%Y-%m")) for k, v in manager.targets.items()]
-
-@app.post("/set_target")
-def set_target(req: SetTargetRequest, db_dir: str = "."):
-    manager = get_manager(db_dir)
-    manager.set_target(req.boxname, req.goal, req.due)
-    manager.dump_data()
-    return {"status": "ok"}
-
 @app.post("/withdraw")
 def withdraw(req: WithdrawRequest, db_dir: str = "."):
     manager = get_manager(db_dir)
@@ -48,19 +57,19 @@ def withdraw(req: WithdrawRequest, db_dir: str = "."):
     manager.dump_data()
     return {"free": manager.balances["free"]}
 
-@app.post("/spend")
-def spend(req: SpendRequest, db_dir: str = "."):
-    manager = get_manager(db_dir)
-    manager.spend(req.boxname, req.amount, req.use_credit)
-    manager.dump_data()
-    return {"balance": manager.balances.get(req.boxname, 0), "credit-spent": manager.balances.get("credit-spent", 0)}
-
 @app.post("/add_to_balance")
 def add_to_balance(req: AddToBalanceRequest, db_dir: str = "."):
     manager = get_manager(db_dir)
     manager.add_to_balance(req.boxname, req.amount)
     manager.dump_data()
     return {"balance": manager.balances[req.boxname], "free": manager.balances["free"]}
+
+@app.post("/spend")
+def spend(req: SpendRequest, db_dir: str = "."):
+    manager = get_manager(db_dir)
+    manager.spend(req.boxname, req.amount, req.use_credit)
+    manager.dump_data()
+    return {"balance": manager.balances.get(req.boxname, 0), "credit-spent": manager.balances.get("credit-spent", 0)}
 
 @app.post("/transfer_between_balances")
 def transfer_between_balances(req: TransferRequest, db_dir: str = "."):
@@ -80,6 +89,36 @@ def new_box(req: NewBoxRequest, db_dir: str = "."):
 def remove_box(req: RemoveBoxRequest, db_dir: str = "."):
     manager = get_manager(db_dir)
     manager.remove_box(req.boxname)
+    manager.dump_data()
+    return {"status": "ok"}
+
+@app.post("/set_target")
+def set_target(req: SetTargetRequest, db_dir: str = "."):
+    manager = get_manager(db_dir)
+    manager.set_target(req.boxname, req.goal, req.due)
+    manager.dump_data()
+    return {"status": "ok"}
+
+@app.post("/remove_target")
+def remove_target(req: RemoveTargetRequest, db_dir: str = "."):
+    manager = get_manager(db_dir)
+    manager.remove_target(req.name)
+    manager.dump_data()
+    return {"status": "ok"}
+
+@app.post("/set_recurring")
+def set_recurring(req: SetRecurringRequest, db_dir: str = "."):
+    """ Set a recurring deposit for a specific balance. """
+    manager = get_manager(db_dir)
+    manager.set_recurring(req.boxname, req.monthly, req.target)
+    manager.dump_data()
+    return {"status": "ok"}
+
+@app.post("/remove_recurring")
+def remove_recurring(req: RemoveRecurringRequest, db_dir: str = "."):
+    """ Remove a recurring deposit for a specific balance. """
+    manager = get_manager(db_dir)
+    manager.remove_recurring(req.boxname)
     manager.dump_data()
     return {"status": "ok"}
 

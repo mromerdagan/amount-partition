@@ -5,6 +5,34 @@ import os
 from pathlib import Path
 from amount_partition.api import BudgetManagerApi
 
+class TestInstatiateBudgetManagerApi(unittest.TestCase):
+    def setUp(self):
+        self.tempdir = tempfile.mkdtemp()
+        
+    def tearDown(self):
+        shutil.rmtree(self.tempdir)
+    
+    def test_create_db_with_missing_goals_files(self):
+        db_path = Path(self.tempdir) / "test_db"
+        if db_path.exists():
+            shutil.rmtree(db_path)
+        self.assertFalse(db_path.exists())
+        
+        # Create the database
+        BudgetManagerApi.create_db(str(db_path))
+        
+        # Check if the partition file exists
+        partition_file = db_path / "partition"
+        self.assertTrue(partition_file.exists())
+        
+        # Make sure goals file isn't created
+        goals_file = db_path / "goals"
+        self.assertFalse(goals_file.exists())
+        
+        # Make sure BudgetManagerApi can be instantiated
+        manager = BudgetManagerApi(str(db_path))
+        self.assertIsInstance(manager, BudgetManagerApi)
+
 class TestListBalances(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
