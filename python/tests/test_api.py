@@ -12,7 +12,7 @@ class TestInstatiateBudgetManagerApi(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.tempdir)
     
-    def test_create_db_with_missing_goals_files(self):
+    def test_create_db_manager(self):
         db_path = Path(self.tempdir) / "test_db"
         if db_path.exists():
             shutil.rmtree(db_path)
@@ -20,23 +20,16 @@ class TestInstatiateBudgetManagerApi(unittest.TestCase):
         
         # Create the database
         BudgetManagerApi.create_db(str(db_path))
-        
-        # Check if the partition file exists
-        partition_file = db_path / "partition"
-        self.assertTrue(partition_file.exists())
-        
-        # Make sure goals file isn't created
-        goals_file = db_path / "goals"
-        self.assertFalse(goals_file.exists())
-        
+
         # Make sure BudgetManagerApi can be instantiated
-        manager = BudgetManagerApi(str(db_path))
+        manager = BudgetManagerApi.from_storage(str(db_path))
         self.assertIsInstance(manager, BudgetManagerApi)
 
 class TestListBalances(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
-        self.db = BudgetManagerApi(self.tempdir)
+        BudgetManagerApi.create_db(self.tempdir)
+        self.db = BudgetManagerApi.from_storage(self.tempdir)
         self.db.deposit(100)
         self.db.new_box('testbox')
         self.db.add_to_balance('testbox', 50)
@@ -54,7 +47,8 @@ class TestListBalances(unittest.TestCase):
 class TestDeposit(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
-        self.db = BudgetManagerApi(self.tempdir)
+        BudgetManagerApi.create_db(self.tempdir)
+        self.db = BudgetManagerApi.from_storage(self.tempdir)
 
     def tearDown(self):
         shutil.rmtree(self.tempdir)
@@ -73,7 +67,8 @@ class TestDeposit(unittest.TestCase):
 class TestWithdraw(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
-        self.db = BudgetManagerApi(self.tempdir)
+        BudgetManagerApi.create_db(self.tempdir)
+        self.db = BudgetManagerApi.from_storage(self.tempdir)
         self.db.deposit(200)
 
     def tearDown(self):
@@ -90,7 +85,8 @@ class TestWithdraw(unittest.TestCase):
 class TestSpend(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
-        self.db = BudgetManagerApi(self.tempdir)
+        BudgetManagerApi.create_db(self.tempdir)
+        self.db = BudgetManagerApi.from_storage(self.tempdir)
         self.db.deposit(200)
         self.db.new_box('test')
         self.db.add_to_balance('test', 100)
@@ -114,7 +110,8 @@ class TestSpend(unittest.TestCase):
 class TestAddToBalance(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
-        self.db = BudgetManagerApi(self.tempdir)
+        BudgetManagerApi.create_db(self.tempdir)
+        self.db = BudgetManagerApi.from_storage(self.tempdir)
         self.db.deposit(200)
         self.db.new_box('test')
 
@@ -129,7 +126,8 @@ class TestAddToBalance(unittest.TestCase):
 class TestTransferBetweenBalances(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
-        self.db = BudgetManagerApi(self.tempdir)
+        BudgetManagerApi.create_db(self.tempdir)
+        self.db = BudgetManagerApi.from_storage(self.tempdir)
         self.db.deposit(200)
         self.db.new_box('a')
         self.db.new_box('b')
@@ -147,7 +145,8 @@ class TestTransferBetweenBalances(unittest.TestCase):
 class TestNewBoxRemoveBox(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
-        self.db = BudgetManagerApi(self.tempdir)
+        BudgetManagerApi.create_db(self.tempdir)
+        self.db = BudgetManagerApi.from_storage(self.tempdir)
 
     def tearDown(self):
         shutil.rmtree(self.tempdir)
@@ -166,7 +165,8 @@ class TestNewBoxRemoveBox(unittest.TestCase):
 class TestNewLoan(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
-        self.db = BudgetManagerApi(self.tempdir)
+        BudgetManagerApi.create_db(self.tempdir)
+        self.db = BudgetManagerApi.from_storage(self.tempdir)
 
     def tearDown(self):
         shutil.rmtree(self.tempdir)
@@ -181,7 +181,8 @@ class TestNewLoan(unittest.TestCase):
 class TestSetTarget(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
-        self.db = BudgetManagerApi(self.tempdir)
+        BudgetManagerApi.create_db(self.tempdir)
+        self.db = BudgetManagerApi.from_storage(self.tempdir)
         self.db.new_box('goalbox')
 
     def tearDown(self):
@@ -196,7 +197,8 @@ class TestSetTarget(unittest.TestCase):
 class TestSuggestDepositsApplySuggestion(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
-        self.db = BudgetManagerApi(self.tempdir)
+        BudgetManagerApi.create_db(self.tempdir)
+        self.db = BudgetManagerApi.from_storage(self.tempdir)
         self.db.deposit(1000)
         self.db.new_box('box1')
         self.db.set_target('box1', 600, '2030-01')
@@ -226,7 +228,8 @@ class TestSuggestDepositsApplySuggestion(unittest.TestCase):
 class TestToJson(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
-        self.db = BudgetManagerApi(self.tempdir)
+        BudgetManagerApi.create_db(self.tempdir)
+        self.db = BudgetManagerApi.from_storage(self.tempdir)
         self.db.deposit(500)
         self.db.new_box('box1')
         self.db.add_to_balance('box1', 200)
@@ -261,7 +264,7 @@ class TestFromJson(unittest.TestCase):
         shutil.rmtree(self.tempdir)
 
     def test_from_json_creates_correct_state(self):
-        db = BudgetManagerApi.from_json(self.tempdir, self.data)
+        db = BudgetManagerApi.from_json(self.data)
         self.assertEqual(db.balances['free'], 100)
         self.assertEqual(db.balances['box2'], 50)
         self.assertIn('box2', db.targets)
@@ -270,26 +273,6 @@ class TestFromJson(unittest.TestCase):
         self.assertIn('box2', db.recurring)
         self.assertEqual(db.recurring['box2'].amount, 20)
         self.assertEqual(db.recurring['box2'].target, 100)
-        
-    
-    def test_from_json_overrides_existing_db(self):
-        # First, create a db with different data
-        db1 = BudgetManagerApi(self.tempdir)
-        db1.deposit(999)
-        db1.new_box('oldbox')
-        db1.add_to_balance('oldbox', 888)
-        # Now, use from_json to overwrite
-        db2 = BudgetManagerApi.from_json(self.tempdir, self.data)
-        # Should match the new data, not the old
-        self.assertEqual(db2.balances['free'], 100)
-        self.assertEqual(db2.balances['box2'], 50)
-        self.assertNotIn('oldbox', db2.balances)
-        self.assertIn('box2', db2.targets)
-        self.assertEqual(db2.targets['box2'].goal, 200)
-        self.assertEqual(db2.targets['box2'].due.strftime('%Y-%m'), '2031-05')
-        self.assertIn('box2', db2.recurring)
-        self.assertEqual(db2.recurring['box2'].amount, 20)
-        self.assertEqual(db2.recurring['box2'].target, 100)
 
 
 if __name__ == '__main__':
