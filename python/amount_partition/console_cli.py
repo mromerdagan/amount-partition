@@ -33,7 +33,7 @@ app = typer.Typer()
 @app.command()
 def summary(db_dir: str = typer.Option('.', '--db-dir', help="Path to the database directory")):
     """Show a summary of balances, targets, and recurring deposits."""
-    manager = BudgetManagerApi(db_dir)
+    manager = BudgetManagerApi.from_storage(db_dir)
     print_summary(
         balances=manager.balances,
         targets=manager.targets,
@@ -49,7 +49,7 @@ def deposit(
     merge_with_credit: bool = typer.Option(True, help="Merge 'credit-spent' into 'free' on deposit")
 ):
     """Deposit an amount into the 'free' balance. Optionally merge 'credit-spent'."""
-    manager = BudgetManagerApi(db_dir)
+    manager = BudgetManagerApi.from_storage(db_dir)
     manager.deposit(amount, merge_with_credit=merge_with_credit)
     manager.dump_data()
     typer.echo(f"Deposited {amount} into 'free'. New 'free' balance: {manager.balances['free']}")
@@ -63,7 +63,7 @@ def withdraw(
     db_dir: str = typer.Option('.', '--db-dir', help="Path to the database directory")
 ):
     """Withdraw an amount from 'free'. If amount is 0, empty 'free'."""
-    manager = BudgetManagerApi(db_dir)
+    manager = BudgetManagerApi.from_storage(db_dir)
     manager.withdraw(amount)
     manager.dump_data()
     typer.echo(f"Withdrew {amount} from 'free'. New 'free' balance: {manager.balances['free']}")
@@ -77,7 +77,7 @@ def spend(
     db_dir: str = typer.Option('.', '--db-dir', help="Path to the database directory")
 ):
     """Spend an amount from a balance. Optionally add to 'credit-spent'."""
-    manager = BudgetManagerApi(db_dir)
+    manager = BudgetManagerApi.from_storage(db_dir)
     manager.spend(boxname, amount, use_credit)
     manager.dump_data()
     typer.echo(f"Spent {amount} from '{boxname}'. New balance: {manager.balances.get(boxname, 0)}")
@@ -92,7 +92,7 @@ def add_to_balance(
     db_dir: str = typer.Option('.', '--db-dir', help="Path to the database directory")
 ):
     """Increase a balance by amount, decreasing 'free' by the same amount."""
-    manager = BudgetManagerApi(db_dir)
+    manager = BudgetManagerApi.from_storage(db_dir)
     manager.add_to_balance(boxname, amount)
     manager.dump_data()
     typer.echo(f"Added {amount} to '{boxname}'. New balance: {manager.balances[boxname]}")
@@ -106,7 +106,7 @@ def transfer_between_balances(
     db_dir: str = typer.Option('.', '--db-dir', help="Path to the database directory")
 ):
     """Transfer amount from one balance to another."""
-    manager = BudgetManagerApi(db_dir)
+    manager = BudgetManagerApi.from_storage(db_dir)
     manager.transfer_between_balances(from_box, to_box, amount)
     manager.dump_data()
     typer.echo(f"Transferred {amount} from '{from_box}' to '{to_box}'.")
@@ -118,7 +118,7 @@ def new_box(
     db_dir: str = typer.Option('.', '--db-dir', help="Path to the database directory")
 ):
     """Create a new balance with the given name and zero value."""
-    manager = BudgetManagerApi(db_dir)
+    manager = BudgetManagerApi.from_storage(db_dir)
     manager.new_box(boxname)
     manager.dump_data()
     typer.echo(f"Created new balance '{boxname}'.")
@@ -130,7 +130,7 @@ def remove_box(
     db_dir: str = typer.Option('.', '--db-dir', help="Path to the database directory")
 ):
     """Remove a balance and transfer its amount to 'free'. Also remove related targets and recurring entries."""
-    manager = BudgetManagerApi(db_dir)
+    manager = BudgetManagerApi.from_storage(db_dir)
     manager.remove_box(boxname)
     manager.dump_data()
     typer.echo(f"Removed balance '{boxname}'.")
@@ -143,7 +143,7 @@ def new_loan(
     db_dir: str = typer.Option('.', '--db-dir', help="Path to the database directory")
 ):
     """Create a self-loan balance with a negative amount and a target to repay by due date."""
-    manager = BudgetManagerApi(db_dir)
+    manager = BudgetManagerApi.from_storage(db_dir)
     manager.new_loan(amount, due)
     manager.dump_data()
     typer.echo(f"Created self-loan of {amount} due {due}.")
@@ -157,7 +157,7 @@ def set_target(
     db_dir: str = typer.Option('.', '--db-dir', help="Path to the database directory")
 ):
     """Set a target amount and due date for a balance."""
-    manager = BudgetManagerApi(db_dir)
+    manager = BudgetManagerApi.from_storage(db_dir)
     manager.set_target(boxname, goal, due)
     manager.dump_data()
     typer.echo(f"Set target for '{boxname}': {goal} by {due}.")
@@ -181,7 +181,7 @@ def to_json(
     output: str = typer.Option('-', '--output', help="Output file (default: stdout)")
 ):
     """Export the database to JSON."""
-    manager = BudgetManagerApi(db_dir)
+    manager = BudgetManagerApi.from_storage(db_dir)
     data = manager.to_json()
     json_str = json.dumps(data, indent=2)
     if output == '-' or not output:

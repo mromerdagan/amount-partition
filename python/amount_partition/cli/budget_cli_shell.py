@@ -289,15 +289,7 @@ class BudgetShell(cmd.Cmd):
         if not dest_file:
             console.print("[red]Usage: export_json <dest-file>[/red]")
             return
-        if not hasattr(self.client, 'export_json'):
-            # fallback: try to_json
-            if hasattr(self.client, 'manager') and hasattr(self.client.manager, 'to_json'):
-                data = self.client.manager.to_json()
-            else:
-                console.print("[red]Export not supported by this client.[/red]")
-                return
-        else:
-            data = self.client.export_json()
+        data = self.client.export_json()
         import json
         with open(dest_file, 'w') as f:
             json.dump(data, f, indent=2)

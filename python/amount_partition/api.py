@@ -41,28 +41,24 @@ class BudgetManagerApi(object):
 		return cls(balances, targets, recurring)
 	
 
-	@classmethod
-	def create_db(cls, db_path: str) -> None:
+	@staticmethod
+	def create_db(db_path: str) -> None:
 		"""
 		Create a new database at the given location. Raises an error if a DB already exists there.
-		Returns the BudgetManagerApi instance for the new DB.
 		"""
-		db_dir = Path(location)
-		balances_path = db_dir / 'partition'
-		targets_path = db_path / 'goals'
-		recurring_path = db_path / 'periodic'
-  
+		db_path = Path(db_path)
+		balances_path = db_path / 'partition'
 		if balances_path.exists():
 			raise FileExistsError(f"A database already exists at {balances_path}")
 
-		db_dir.mkdir(parents=True, exist_ok=True)
+		db_path.mkdir(parents=True, exist_ok=True)
 		balances = OrderedDict()
 		balances["free"] = 0
 		balances["credit-spent"] = 0
-		with balances_path.open("w"): pass  # create file
-		with targets_path.open("w"): pass
-		with recurring_path.open("w"): pass
-  
+		targets = OrderedDict()
+		recurring = OrderedDict()
+		BudgetManagerApi.dump_data_static(db_path, balances, targets, recurring)
+
 	@classmethod
 	def from_json(cls, json_data_or_path) -> 'BudgetManagerApi':
 		if isinstance(json_data_or_path, str) or isinstance(json_data_or_path, Path):
@@ -92,26 +88,33 @@ class BudgetManagerApi(object):
 
 		return {"partition": partition, "goals": goals, "periodic": periodic}
 
-
 	def dump_data(self, db_dir: str) -> None:
-		"""Write current partition, goals, and periodic data to files."""
+		"""
+		Write the current state to files in the database directory.
+		"""
+		db_path = Path(db_dir)
+		self.dump_data_static(db_path, self.balances, self.targets, self.recurring)
 
-		db_path = Path(db_dir)  
+
+	@staticmethod
+	def dump_data_static(db_dir: str, balances, targets, recurring) -> None:
+		"""Write partition, goals, and periodic data to files."""
+		db_path = Path(db_dir)
 
 		# Write balances
-		t = db_path / ('partition.tmp')
-		dump_balances_file(t, self.balances)
-		t.replace('partition')
+		t = db_path / 'partition.tmp'
+		dump_balances_file(t, balances)
+		t.replace(db_path / 'partition')
 
 		# Write targets
-		t = db_path / ('goals.tmp')
-		dump_targets_file(t, self.targets)
-		t.replace('goals')
-  
+		t = db_path / 'goals.tmp'
+		dump_targets_file(t, targets)
+		t.replace(db_path / 'goals')
+
 		# Write recurring deposits
-		t = db_path / ('periodic.tmp')
-		dump_recurring_file(t, self.recurring)
-		t.replace('periodic')
+		t = db_path / 'periodic.tmp'
+		dump_recurring_file(t, recurring)
+		t.replace(db_path / 'periodic')
    
 	def list_balances(self) -> list[str]:
 		"""Return a list of balance names."""
