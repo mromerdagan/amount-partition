@@ -1,9 +1,10 @@
 import os
 import math
+import json
 from pathlib import Path
 from datetime import datetime, timedelta
 from collections import OrderedDict
-from amount_partition.parsing import parse_balances_file, parse_targets_file, parse_recurring_file
+from amount_partition.parsing import dump_balances_file, dump_targets_file, dump_recurring_file ,parse_balances_file, parse_targets_file, parse_recurring_file
 from amount_partition.models import Target, PeriodicDeposit
 
 DEPOSIT_DAY = 10  # Day of month after which deposit is considered done
@@ -11,56 +12,70 @@ DAYS_IN_MONTH = 30  # Used for monthly calculations
 
 class BudgetManagerApi(object):
 
-	def __init__(self, db_dir: str) -> None:
-		"""Initialize AmountPartition with a database directory."""
-		self.db_dir = Path(db_dir)
-		self.balances_path = self.db_dir / 'partition'
-		self.targets_path = self.db_dir / 'goals'
-		self.recurring_path = self.db_dir / 'periodic'
-
-		# Initialize data structures - will get values at setup()
-		self.balances = OrderedDict()
-		self.targets = OrderedDict()
-		self.recurring = OrderedDict()
-
-		self.setup()
-
-		# Used in multiple functions
+	def __init__(self, balances=None, targets=None, recurring=None):
+		self.balances = balances or OrderedDict()
+		self.targets = targets or OrderedDict()
+		self.recurring = recurring or OrderedDict()
 		self.now = datetime.now()
 
-	def setup(self) -> None:
-		"""Set up partition, goals, and periodic data from files or initialize new ones."""
-		if self.balances or self.targets or self.recurring:
-			raise RuntimeError('Setup has already been run before. The balances, targets, or recurring data structures are not empty. This likely indicates a logic error or repeated initialization.')
+	@classmethod
+	def from_storage(cls, db_dir: str) -> 'BudgetManagerApi':
+		"""
+		Create a BudgetManagerApi instance from the database directory.
+		Reads balances, targets, and recurring deposits from files.
+		"""
+		db_dir = Path(db_dir)
+		balances_path = db_dir / 'partition'
+		targets_path = db_dir / 'goals'
+		recurring_path = db_dir / 'periodic'
+  
+		if not balances_path.exists():
+			raise FileNotFoundError(f"Balances file not found at {balances_path}")
 
-		if not(self.balances_path.exists()): # Initialize new balances
-			with self.balances_path.open('w') as fh:
-				fh.close()
-			self.new_box('free')
-			self.new_box('credit-spent')
-			self.dump_data()
-		else: # Load existing partition
-			try:
-				self.balances = parse_balances_file(self.balances_path)
-				self.targets = parse_targets_file(self.targets_path)
-				self.recurring = parse_recurring_file(self.recurring_path)
-			except Exception as e:			
-				raise RuntimeError(f"Failed to read partition data from {self.db_dir}: {e}") from e
+		try:
+			balances = parse_balances_file(balances_path)
+			targets = parse_targets_file(targets_path)
+			recurring = parse_recurring_file(recurring_path)
+		except FileNotFoundError as e:
+			raise RuntimeError(f"Error reading files in {db_dir}: {e}")
+		return cls(balances, targets, recurring)
 	
 
 	@classmethod
-	def create_db(cls, location: str) -> 'BudgetManagerApi':
+	def create_db(cls, db_path: str) -> None:
 		"""
 		Create a new database at the given location. Raises an error if a DB already exists there.
 		Returns the BudgetManagerApi instance for the new DB.
 		"""
 		db_dir = Path(location)
-		partition_path = db_dir / 'partition'
-		if partition_path.exists():
-			raise FileExistsError(f"A database already exists at {partition_path}")
+		balances_path = db_dir / 'partition'
+		targets_path = db_path / 'goals'
+		recurring_path = db_path / 'periodic'
+  
+		if balances_path.exists():
+			raise FileExistsError(f"A database already exists at {balances_path}")
+
 		db_dir.mkdir(parents=True, exist_ok=True)
-		instance = cls(location)
-		return instance
+		balances = OrderedDict()
+		balances["free"] = 0
+		balances["credit-spent"] = 0
+		with balances_path.open("w"): pass  # create file
+		with targets_path.open("w"): pass
+		with recurring_path.open("w"): pass
+  
+	@classmethod
+	def from_json(cls, json_data_or_path) -> 'BudgetManagerApi':
+		if isinstance(json_data_or_path, str) or isinstance(json_data_or_path, Path):
+			with open(json_data_or_path) as f:
+				data = json.load(f)
+		else:
+			data = json_data_or_path
+
+		balances = OrderedDict(data.get("partition", {}))
+		targets = OrderedDict({name: Target.from_json(d) for name, d in data.get("goals", {}).items()})
+		recurring = OrderedDict({name: PeriodicDeposit.from_json(d) for name, d in data.get("periodic", {}).items()})
+
+		return cls(balances, targets, recurring)
 
 	def to_json(self) -> dict:
 		"""
@@ -77,67 +92,26 @@ class BudgetManagerApi(object):
 
 		return {"partition": partition, "goals": goals, "periodic": periodic}
 
-	@classmethod
-	def from_json(cls, db_dir: str, data: dict) -> 'BudgetManagerApi':
-		"""
-		Create a BudgetManagerApi instance from a JSON dict (as produced by to_json).
-		Overwrites any existing data in the db_dir.
-		"""
-		try:
-			instance = cls.create_db(db_dir)
-		except FileExistsError:
-			instance = cls(db_dir)
-   
-		# partition
-		instance.balances.clear()
-		for boxname, amount in data.get("partition", {}).items():
-			instance.balances[boxname] = amount
-   
-		# goals
-		instance.targets.clear()
-		for boxname, goal_data in data.get("goals", {}).items():
-			due = goal_data["due"]
-			instance.set_target(boxname, goal_data["goal"], due)
-   
-		# periodic
-		instance.recurring.clear()
-		for boxname, periodic_data in data.get("periodic", {}).items():
-			instance.set_recurring(boxname, periodic_data["amount"], periodic_data["target"])
-		instance.dump_data()
-		return instance
 
-	def dump_data(self) -> None:
+	def dump_data(self, db_dir: str) -> None:
 		"""Write current partition, goals, and periodic data to files."""
-		t = self.db_dir / (self.balances_path.name + '.new')
-		with t.open('w') as fh:
-			for target in self.balances:
-				line = "{:<20} {}\n".format(target, self.balances[target])
-				fh.write(line)
-		t.replace(self.balances_path)
 
-		if self.targets:
-			t = self.db_dir / (self.targets_path.name + '.new')
-			with t.open('w') as fh:
-				for target in self.targets:
-					line = "{:<20} {:<15} {}\n".format(\
-							target, \
-							self.targets[target].goal, \
-							self.targets[target].due.strftime('%Y-%m') \
-							)
-					fh.write(line)
-			t.replace(self.targets_path)
+		db_path = Path(db_dir)  
 
-		if self.recurring:
-			t = self.db_dir / (self.recurring_path.name + '.new')
-			with t.open('w') as fh:
-				for target in self.recurring:
-					line = "{:<20} {:<10} {}\n".format(\
-							target, \
-							self.recurring[target].amount, \
-							self.recurring[target].target, \
-							)
-					fh.write(line)
-			t.replace(self.recurring_path)
+		# Write balances
+		t = db_path / ('partition.tmp')
+		dump_balances_file(t, self.balances)
+		t.replace('partition')
+
+		# Write targets
+		t = db_path / ('goals.tmp')
+		dump_targets_file(t, self.targets)
+		t.replace('goals')
+  
+		# Write recurring deposits
+		t = db_path / ('periodic.tmp')
+		dump_recurring_file(t, self.recurring)
+		t.replace('periodic')
    
 	def list_balances(self) -> list[str]:
 		"""Return a list of balance names."""
@@ -384,4 +358,4 @@ class BudgetManagerApi(object):
 if __name__ == "__main__": ## DEBUG
 	homedir = os.environ['HOME']
 	DB = f"{homedir}/git/finance/partition-bp"
-	fp = BudgetManagerApi(DB)
+	fp = BudgetManagerApi.from_storage(DB)
