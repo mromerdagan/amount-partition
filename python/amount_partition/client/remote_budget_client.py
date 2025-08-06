@@ -1,4 +1,5 @@
 from collections import OrderedDict
+import json
 import requests
 from amount_partition.api import BudgetManagerApi
 from amount_partition.client.budget_manager_client import BudgetManagerClient
@@ -131,3 +132,26 @@ class RemoteBudgetManagerClient(BudgetManagerClient):
         response = requests.post(f"{self.api_url}/create_db", json=data)
         response.raise_for_status()
         return response.json()
+    
+    def export_json(self):
+        params = {"db_dir": self.db_path}
+        response = requests.get(f"{self.api_url}/export_json", params=params)
+        response.raise_for_status()
+        return response.json()
+        return {"status": "exported", "file": to_file}
+
+    def import_json(self, data: dict):
+        response = requests.post(f"{self.api_url}/import_json", json=data, params={"db_dir": self.db_path})
+        response.raise_for_status()
+        return response.json()
+    
+if __name__ == "__main__":
+    import json
+    api_url = "http://127.0.0.1:8002"
+    db_path = "/tmp/partition-bp/"
+    client = RemoteBudgetManagerClient(api_url, db_path)
+    json_file = "/tmp/export.json"
+    with open(json_file, 'r') as f:
+        data = json.load(f)
+    client.import_json(data)
+    print(client.get_balances())
