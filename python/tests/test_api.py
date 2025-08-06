@@ -24,6 +24,23 @@ class TestInstatiateBudgetManagerApi(unittest.TestCase):
         # Make sure BudgetManagerApi can be instantiated
         manager = BudgetManagerApi.from_storage(str(db_path))
         self.assertIsInstance(manager, BudgetManagerApi)
+    
+    def test_new_db_manager_contains_default_boxes(self):
+        db_path = Path(self.tempdir) / "test_db"
+        if db_path.exists():
+            shutil.rmtree(db_path)
+        
+        # Create the database
+        BudgetManagerApi.create_db(str(db_path))
+
+        # Instantiate the manager
+        manager = BudgetManagerApi.from_storage(str(db_path))
+        
+        # Check default balances
+        self.assertIn('free', manager.balances)
+        self.assertIn('credit-spent', manager.balances)
+        self.assertEqual(manager.balances['free'], 0)
+        self.assertEqual(manager.balances['credit-spent'], 0)
 
 class TestListBalances(unittest.TestCase):
     def setUp(self):
