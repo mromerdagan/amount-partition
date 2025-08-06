@@ -58,6 +58,10 @@ class LocalBudgetManagerClient(BudgetManagerClient):
         self.manager.set_target(boxname, goal, due)
         self.manager.dump_data()
     
+    def remove_target(self, boxname: str):
+        self.manager.remove_target(boxname)
+        self.manager.dump_data()
+    
     def set_recurring(self, boxname: str, monthly: int, target: int):
         self.manager.set_recurring(boxname, monthly, target)
         self.manager.dump_data()

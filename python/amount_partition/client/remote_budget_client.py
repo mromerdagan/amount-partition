@@ -77,13 +77,13 @@ class RemoteBudgetManagerClient(BudgetManagerClient):
         data = {"boxname": boxname}
         response = requests.post(f"{self.api_url}/new_box", json=data, params={"db_dir": self.db_path})
         response.raise_for_status()
-        return
+        return response.json()
 
     def remove_box(self, boxname: str):
         data = {"boxname": boxname}
         response = requests.post(f"{self.api_url}/remove_box", json=data, params={"db_dir": self.db_path})
         response.raise_for_status()
-        return
+        return response.json()
     
     def set_target(self, boxname: str, goal: int, due: str):
         data = {
@@ -92,6 +92,12 @@ class RemoteBudgetManagerClient(BudgetManagerClient):
             "due": due
         }
         response = requests.post(f"{self.api_url}/set_target", json=data, params={"db_dir": self.db_path})
+        response.raise_for_status()
+        return response.json()
+    
+    def remove_target(self, name: str):
+        data = {"name": name}
+        response = requests.post(f"{self.api_url}/remove_target", json=data, params={"db_dir": self.db_path})
         response.raise_for_status()
         return response.json()
     

@@ -1,6 +1,8 @@
 import unittest
 from unittest.mock import patch, Mock
 from amount_partition.client.remote_budget_client import RemoteBudgetManagerClient
+from datetime import datetime
+from amount_partition.models import Target
 
 class TestRemoteBudgetManagerClient(unittest.TestCase):
 
@@ -10,7 +12,7 @@ class TestRemoteBudgetManagerClient(unittest.TestCase):
     @patch("amount_partition.client.remote_budget_client.requests.get")
     def test_get_balances(self, mock_get):
         mock_response = Mock()
-        mock_response.json.return_value = {"free": 100, "vacation": 50}
+        mock_response.json.return_value = {"free":{"name": "free", "amount": 100}, "vacation": {"name": "vacation", "amount": 50}}
         mock_response.raise_for_status = Mock()
         mock_get.return_value = mock_response
 
@@ -48,14 +50,21 @@ class TestRemoteBudgetManagerClient(unittest.TestCase):
     @patch("amount_partition.client.remote_budget_client.requests.get")
     def test_get_targets(self, mock_get):
         mock_response = Mock()
-        mock_response.json.return_value = [{"name": "vacation", "goal": 500, "due": "2030-01"}]
+        mock_response.json.return_value = {
+            "vacation": {
+                "name": "vacation",
+                "goal": 500,
+                "due": "2030-01"
+            }
+        }
         mock_response.raise_for_status = Mock()
         mock_get.return_value = mock_response
 
         result = self.client.get_targets()
-        self.assertEqual(result[0]["name"], "vacation")
-        self.assertEqual(result[0]["goal"], 500)
-        self.assertEqual(result[0]["due"], "2030-01")
+        self.assertIn("vacation", result)
+        self.assertIsInstance(result["vacation"], Target)
+        self.assertEqual(result["vacation"].goal, 500)
+        self.assertEqual(result["vacation"].due, datetime(2030, 1, 1))
         mock_get.assert_called_once_with("http://fake-api/targets", params={"db_dir": "/tmp/budget"})
 
     @patch("amount_partition.client.remote_budget_client.requests.post")
