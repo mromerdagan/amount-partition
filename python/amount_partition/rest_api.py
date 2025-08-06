@@ -147,11 +147,10 @@ def export_json(db_dir: str = "."):
 
 # Import database from JSON
 @app.post("/import_json")
-async def import_json(db_dir: str = ".", file: UploadFile = File(...)):
+async def import_json(db_dir: str = ".", data: dict = Body(...)):
     try:
-        contents = await file.read()
-        data = json.loads(contents)
-        BudgetManagerApi.from_json(db_dir, data)
+        manager = BudgetManagerApi.from_json(data)
+        manager.dump_data(db_dir)
         return {"status": "imported", "db_dir": db_dir}
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to import JSON: {e}")

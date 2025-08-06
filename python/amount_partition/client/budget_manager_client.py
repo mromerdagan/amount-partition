@@ -88,3 +88,13 @@ class BudgetManagerClient(ABC):
     def create_db(self, db_dir: str):
         """Create a new database at the given location."""
         pass
+    
+    @abstractmethod
+    def export_json(self) -> Dict:
+        """Export the current state as a JSON object."""
+        pass
+    
+    @abstractmethod
+    def import_json(self, data: dict):
+        """Import data from a JSON object."""
+        pass

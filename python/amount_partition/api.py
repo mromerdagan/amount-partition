@@ -98,6 +98,8 @@ class BudgetManagerApi(object):
 	def dump_data_static(db_dir: str, balances, targets, recurring) -> None:
 		"""Write partition, goals, and periodic data to files."""
 		db_path = Path(db_dir)
+		if not db_path.exists():
+			db_path.mkdir(parents=True, exist_ok=True)
 
 		# Write balances
 		t = db_path / 'partition.tmp'

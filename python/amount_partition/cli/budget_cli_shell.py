@@ -1,3 +1,4 @@
+import json
 import argparse
 import cmd
 import sys
@@ -284,16 +285,19 @@ class BudgetShell(cmd.Cmd):
         console.print(f"Created new loan of {amount} due {due}. Result: {result}")
 
     def do_export_json(self, arg):
-        "Export database to JSON file. Usage: export_json <dest-file>"
-        dest_file = arg.strip()
-        if not dest_file:
-            console.print("[red]Usage: export_json <dest-file>[/red]")
-            return
-        data = self.client.export_json()
-        import json
-        with open(dest_file, 'w') as f:
-            json.dump(data, f, indent=2)
-        console.print(f"Exported database to {dest_file}.")
+        "Export database to JSON file. Usage: export_json <to-file>"
+        args = arg.strip().split()
+        to_file = args[0] if args else None
+        try:
+            data = self.client.export_json()
+            if to_file:
+                with open(to_file, 'w') as fh:
+                    json.dump(data, fh, indent=4)
+            else:
+                console.print(json.dumps(data, indent=4))
+        except Exception as e:
+            console.print(f"[red]Error exporting: {e}[/red]")
+        console.print(f"Exported database to {to_file if to_file else 'stdout'}.")
 
     def do_import_json(self, arg):
         "Import database from JSON file. Usage: import_json <src-file>"

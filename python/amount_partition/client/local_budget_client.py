@@ -94,17 +94,17 @@ class LocalBudgetManagerClient(BudgetManagerClient):
         manager.new_loan(amount, due)
         manager.dump_data(self.db_dir)
     
-    
-    # Stubs for missing parent methods
     def export_json(self):
-        raise NotImplementedError("export_json is not implemented in LocalBudgetManagerClient.")
+        manager = BudgetManagerApi.from_storage(self.db_dir)
+        data = manager.to_json()
+        return data
 
-    def import_json(self, data):
-        raise NotImplementedError("import_json is not implemented in LocalBudgetManagerClient.")
-
-    def to_json(self):
-        raise NotImplementedError("to_json is not implemented in LocalBudgetManagerClient.")
+    def import_json(self, data: dict):
+        manager = BudgetManagerApi.from_json(data)
+        manager.dump_data(self.db_dir)
 
 if __name__ == "__main__":
     manager = LocalBudgetManagerClient("/tmp/partition-bp")
-    
+    manager.export_json("/tmp/export.json")
+    m2 = LocalBudgetManagerClient("/tmp/partition-bp2")
+    m2.import_json("/tmp/export.json")
