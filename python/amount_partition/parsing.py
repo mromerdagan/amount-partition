@@ -66,3 +66,28 @@ def parse_recurring_file(recurring_path: pathlib.Path) -> dict[str, PeriodicDepo
         boxname, periodic = parse_recurring_line(line)
         recurring[boxname] = periodic
     return recurring
+
+def dump_balances_file(partition_path: pathlib.Path, balances: dict[str, int]) -> None:
+    """Write the balances dict to the partition file."""
+    lines = [f"{boxname:<20} {amount}" for boxname, amount in balances.items()]
+    content = "\n".join(lines) + "\n"
+    partition_path.write_text(content)
+
+
+def dump_targets_file(targets_path: pathlib.Path, targets: dict[str, Target]) -> None:
+    """Write the targets dict to the goals file."""
+    lines = [
+        f"{boxname:<20} {target.goal:<20} {target.due.strftime('%Y-%m')}"
+        for boxname, target in targets.items()
+    ]
+    content = "\n".join(lines) + "\n"
+    targets_path.write_text(content)
+
+
+def dump_recurring_file(recurring_path: pathlib.Path, recurring: dict[str, PeriodicDeposit]) -> None:
+    """Write the recurring dict to the periodic file."""
+    lines = []
+    for boxname, periodic in recurring.items():
+        lines.append(f"{boxname:<20} {periodic.monthly:<20} {periodic.target}")
+    content = "\n".join(lines) + "\n"
+    recurring_path.write_text(content)
