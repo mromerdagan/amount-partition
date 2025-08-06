@@ -13,7 +13,7 @@ DAYS_IN_MONTH = 30  # Used for monthly calculations
 class BudgetManagerApi(object):
 
 	def __init__(self, balances=None, targets=None, recurring=None):
-		self.balances = balances or OrderedDict()
+		self.balances = balances or OrderedDict({"free": 0, "credit-spent": 0})
 		self.targets = targets or OrderedDict()
 		self.recurring = recurring or OrderedDict()
 		self.now = datetime.now()
@@ -52,9 +52,7 @@ class BudgetManagerApi(object):
 			raise FileExistsError(f"A database already exists at {balances_path}")
 
 		db_path.mkdir(parents=True, exist_ok=True)
-		balances = OrderedDict()
-		balances["free"] = 0
-		balances["credit-spent"] = 0
+		balances = OrderedDict({"free": 0, "credit-spent": 0})
 		targets = OrderedDict()
 		recurring = OrderedDict()
 		BudgetManagerApi.dump_data_static(db_path, balances, targets, recurring)
@@ -215,7 +213,7 @@ class BudgetManagerApi(object):
 		self.balances['free'] += amount
 		self.set_target(boxname, 0, due)
 	
-	#### goal methods
+	####  goal methods
 	def set_target(self, boxname: str, goal: int, due: str) -> None:
 		"""Set a target amount and due date for a balance."""
 		if not(boxname in self.balances):
