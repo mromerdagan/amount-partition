@@ -152,7 +152,7 @@ class BudgetManagerApi(object):
 	def spend(self, boxname: str, amount: int = 0, use_credit: bool = False) -> None:
 		"""Spend an amount from a balance. If use_credit, add to 'credit-spent'."""
 		if not(boxname in self.balances):
-			raise KeyError(f"Key '{boxname}' is missing from balances (defined at '{self.balances_path}')")
+			raise KeyError(f"Key '{boxname}' is missing from balances")
 		if not(amount):
 			amount = self.balances[boxname]
 
@@ -166,7 +166,7 @@ class BudgetManagerApi(object):
 	def add_to_balance(self, boxname: str, amount: int) -> None:
 		"""Increase a balance by amount, decreasing 'free' by the same amount."""
 		if not(boxname in self.balances):
-			raise KeyError(f"Key '{boxname}' is missing from database ('{self.balances_path}')")
+			raise KeyError(f"Key '{boxname}' is missing from database")
 		if amount > self.balances['free']:
 			raise ValueError(f"Trying to add amount larger than available at 'free' (free={self.balances['free']})")
 
@@ -177,7 +177,7 @@ class BudgetManagerApi(object):
 		"""Transfer amount from one balance to another."""
 		for boxname in [from_box, to_box]:
 			if not(boxname in self.balances):
-				raise KeyError(f"Key '{boxname}' is missing from database ('{self.balances_path}')")
+				raise KeyError(f"Key '{boxname}' is missing from database")
 
 		if amount > self.balances[from_box]:
 			raise ValueError(f'Amount in source balance not sufficient (existing amount: {self.balances[from_box]})')
@@ -189,13 +189,13 @@ class BudgetManagerApi(object):
 	def new_box(self, boxname: str) -> None:
 		"""Create a new balance with the given name and zero value."""
 		if boxname in self.balances:
-			raise KeyError(f"Key '{boxname}' is already in database ('{self.balances_path}')")
+			raise KeyError(f"Key '{boxname}' is already in database")
 		self.balances[boxname] = 0
 
 	def remove_box(self, boxname: str) -> None:
 		"""Remove a balance and transfer its amount to 'free'. Also remove related targets and recurring entries."""
 		if not(boxname in self.balances):
-			raise KeyError(f"Key '{boxname}' is missing from database ('{self.balances_path}')")
+			raise KeyError(f"Key '{boxname}' is missing from database")
 		self.spend(boxname)
 		del(self.balances[boxname])
 
@@ -331,7 +331,7 @@ class BudgetManagerApi(object):
 			raise ValueError(f"Cannot apply suggestion- missing {missing} in 'free'")
 		for boxname in suggestion:
 			if boxname not in self.balances:
-				raise KeyError(f"Key '{boxname}' is missing from database ('{self.balances_path}')")
+				raise KeyError(f"Key '{boxname}' is missing from database")
 			self.add_to_balance(boxname, suggestion[boxname])
 	
 	# Reserved funds for future targets
