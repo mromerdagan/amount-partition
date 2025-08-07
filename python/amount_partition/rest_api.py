@@ -81,8 +81,11 @@ def transfer_between_balances(req: TransferRequest, db_dir: str = "."):
 @app.post("/new_box")
 def new_box(req: NewBoxRequest, db_dir: str = "."):
     manager = get_manager(db_dir)
-    manager.new_box(req.boxname)
-    manager.dump_data(db_dir)
+    try:
+        manager.new_box(req.boxname)
+        manager.dump_data(db_dir)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
     return {"status": "ok"}
 
 @app.post("/remove_box")

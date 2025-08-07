@@ -105,6 +105,4 @@ class LocalBudgetManagerClient(BudgetManagerClient):
 
 if __name__ == "__main__":
     manager = LocalBudgetManagerClient("/tmp/partition-bp")
-    manager.export_json("/tmp/export.json")
-    m2 = LocalBudgetManagerClient("/tmp/partition-bp2")
-    m2.import_json("/tmp/export.json")
+    manager.new_box("t4")

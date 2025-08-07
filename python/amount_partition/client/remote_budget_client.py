@@ -77,7 +77,14 @@ class RemoteBudgetManagerClient(BudgetManagerClient):
     def new_box(self, boxname: str):
         data = {"boxname": boxname}
         response = requests.post(f"{self.api_url}/new_box", json=data, params={"db_dir": self.db_path})
-        response.raise_for_status()
+        
+        if response.status_code != 200:
+            try:
+                error_message = response.json().get("detail", "Unknown error")
+            except Exception:
+                error_message = response.text
+            raise RuntimeError(error_message)
+        
         return response.json()
 
     def remove_box(self, boxname: str):
