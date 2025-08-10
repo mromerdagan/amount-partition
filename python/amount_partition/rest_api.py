@@ -45,38 +45,53 @@ def get_recurring(db_dir: str = "."):
 
 @app.post("/deposit")
 def deposit(req: DepositRequest, db_dir: str = "."):
-    manager = get_manager(db_dir)
-    manager.deposit(req.amount, merge_with_credit=req.merge_with_credit)
-    manager.dump_data(db_dir)
-    return {"free": manager.balances["free"]}
+    try:
+        manager = get_manager(db_dir)
+        manager.deposit(req.amount, merge_with_credit=req.merge_with_credit)
+        manager.dump_data(db_dir)
+        return {"free": manager.balances["free"]}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/withdraw")
 def withdraw(req: WithdrawRequest, db_dir: str = "."):
-    manager = get_manager(db_dir)
-    manager.withdraw(req.amount)
-    manager.dump_data(db_dir)
-    return {"free": manager.balances["free"]}
+    try:
+        manager = get_manager(db_dir)
+        manager.withdraw(req.amount)
+        manager.dump_data(db_dir)
+        return {"free": manager.balances["free"]}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/add_to_balance")
 def add_to_balance(req: AddToBalanceRequest, db_dir: str = "."):
-    manager = get_manager(db_dir)
-    manager.add_to_balance(req.boxname, req.amount)
-    manager.dump_data(db_dir)
-    return {"balance": manager.balances[req.boxname], "free": manager.balances["free"]}
+    try:
+        manager = get_manager(db_dir)
+        manager.add_to_balance(req.boxname, req.amount)
+        manager.dump_data(db_dir)
+        return {"balance": manager.balances[req.boxname], "free": manager.balances["free"]}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/spend")
 def spend(req: SpendRequest, db_dir: str = "."):
-    manager = get_manager(db_dir)
-    manager.spend(req.boxname, req.amount, req.use_credit)
-    manager.dump_data(db_dir)
-    return {"balance": manager.balances.get(req.boxname, 0), "credit-spent": manager.balances.get("credit-spent", 0)}
+    try:
+        manager = get_manager(db_dir)
+        manager.spend(req.boxname, req.amount, req.use_credit)
+        manager.dump_data(db_dir)
+        return {"balance": manager.balances.get(req.boxname, 0), "credit-spent": manager.balances.get("credit-spent", 0)}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/transfer_between_balances")
 def transfer_between_balances(req: TransferRequest, db_dir: str = "."):
-    manager = get_manager(db_dir)
-    manager.transfer_between_balances(req.from_box, req.to_box, req.amount)
-    manager.dump_data(db_dir)
-    return {"from_box": manager.balances[req.from_box], "to_box": manager.balances[req.to_box]}
+    try:
+        manager = get_manager(db_dir)
+        manager.transfer_between_balances(req.from_box, req.to_box, req.amount)
+        manager.dump_data(db_dir)
+        return {"from_box": manager.balances[req.from_box], "to_box": manager.balances[req.to_box]}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/new_box")
 def new_box(req: NewBoxRequest, db_dir: str = "."):
@@ -90,47 +105,65 @@ def new_box(req: NewBoxRequest, db_dir: str = "."):
 
 @app.post("/remove_box")
 def remove_box(req: RemoveBoxRequest, db_dir: str = "."):
-    manager = get_manager(db_dir)
-    manager.remove_box(req.boxname)
-    manager.dump_data(db_dir)
+    try:
+        manager = get_manager(db_dir)
+        manager.remove_box(req.boxname)
+        manager.dump_data(db_dir)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
     return {"status": "ok"}
 
 @app.post("/set_target")
 def set_target(req: SetTargetRequest, db_dir: str = "."):
-    manager = get_manager(db_dir)
-    manager.set_target(req.boxname, req.goal, req.due)
-    manager.dump_data(db_dir)
-    return {"status": "ok"}
+    try:
+        manager = get_manager(db_dir)
+        manager.set_target(req.boxname, req.goal, req.due)
+        manager.dump_data(db_dir)
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/remove_target")
 def remove_target(req: RemoveTargetRequest, db_dir: str = "."):
-    manager = get_manager(db_dir)
-    manager.remove_target(req.name)
-    manager.dump_data(db_dir)
-    return {"status": "ok"}
+    try:
+        manager = get_manager(db_dir)
+        manager.remove_target(req.name)
+        manager.dump_data(db_dir)
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/set_recurring")
 def set_recurring(req: SetRecurringRequest, db_dir: str = "."):
     """ Set a recurring deposit for a specific balance. """
-    manager = get_manager(db_dir)
-    manager.set_recurring(req.boxname, req.monthly, req.target)
-    manager.dump_data(db_dir)
-    return {"status": "ok"}
+    try:
+        manager = get_manager(db_dir)
+        manager.set_recurring(req.boxname, req.monthly, req.target)
+        manager.dump_data(db_dir)
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/remove_recurring")
 def remove_recurring(req: RemoveRecurringRequest, db_dir: str = "."):
     """ Remove a recurring deposit for a specific balance. """
-    manager = get_manager(db_dir)
-    manager.remove_recurring(req.boxname)
-    manager.dump_data(db_dir)
-    return {"status": "ok"}
+    try:
+        manager = get_manager(db_dir)
+        manager.remove_recurring(req.boxname)
+        manager.dump_data(db_dir)
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/new_loan")
 def new_loan(req: NewLoanRequest, db_dir: str = "."):
-    manager = get_manager(db_dir)
-    manager.new_loan(req.amount, req.due)
-    manager.dump_data(db_dir)
-    return {"status": "ok"}
+    try:
+        manager = get_manager(db_dir)
+        manager.new_loan(req.amount, req.due)
+        manager.dump_data(db_dir)
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/create_db")
 def create_db(req: CreateDbRequest = Body(...)):

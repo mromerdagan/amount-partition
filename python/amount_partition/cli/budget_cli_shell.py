@@ -108,7 +108,12 @@ class BudgetShell(cmd.Cmd):
         merge_with_credit = False
         if len(parts) > 1 and parts[1] == "--merge-with-credit":
             merge_with_credit = True
-        result = self.client.deposit(amount, merge_with_credit=merge_with_credit)
+        try:
+            result = self.client.deposit(amount, merge_with_credit=merge_with_credit)
+        except Exception as e:
+            console.print(f"[red]Error depositing: {e}[/red]")
+            return
+        
         console.print(f"Deposited {amount}. New free balance: {result.get('free', '?')}")
         if merge_with_credit:
             console.print("'credit-spent' merged into 'free'.")
@@ -120,7 +125,12 @@ class BudgetShell(cmd.Cmd):
         except Exception:
             console.print("[red]Usage: withdraw <amount>[/red]")
             return
-        result = self.client.withdraw(amount)
+        
+        try:
+            result = self.client.withdraw(amount)
+        except Exception as e:
+            console.print(f"[red]Error withdrawing: {e}[/red]")
+            return
         console.print(f"Withdrew {amount}. New free balance: {result.get('free', '?')}")
 
     def do_add(self, arg):
@@ -135,9 +145,14 @@ class BudgetShell(cmd.Cmd):
         except Exception:
             console.print("[red]Amount must be an integer.[/red]")
             return
-        result = self.client.add_to_balance(box, amount)
-        console.print(f"Added {amount} to {box}. New balance: {result.get('balance', '?')}")  
-    
+        
+        try:
+            result = self.client.add_to_balance(box, amount)
+        except Exception as e:
+            console.print(f"[red]Error adding to balance: {e}[/red]")
+            return
+        console.print(f"Added {amount} to {box}. New balance: {result.get('balance', '?')}")
+
     def do_spend(self, arg):
         "Spend amount from a box. Usage: spend <box> <amount> [--use-credit]"
         parts = arg.strip().split()
@@ -153,7 +168,13 @@ class BudgetShell(cmd.Cmd):
         except Exception:
             console.print("[red]Amount must be an integer.[/red]")
             return
-        result = self.client.spend(box, amount, use_credit=use_credit)
+        
+        try:
+            result = self.client.spend(box, amount, use_credit=use_credit)
+        except Exception as e:
+            console.print(f"[red]Error spending: {e}[/red]")
+            return
+        
         console.print(f"Spent {amount} from {box}. New balance: {result.get('balance', '?')}")
 
     def do_transfer(self, arg):
@@ -171,7 +192,12 @@ class BudgetShell(cmd.Cmd):
         if not hasattr(self.client, 'transfer_between_balances'):
             console.print("[red]Transfer not supported by this client.[/red]")
             return
-        result = self.client.transfer_between_balances(from_box, to_box, amount)
+        
+        try:
+            result = self.client.transfer_between_balances(from_box, to_box, amount)
+        except Exception as e:
+            console.print(f"[red]Error transferring: {e}[/red]")
+            return
         console.print(f"Transferred {amount} from {from_box} to {to_box}.")
 
     def do_new_box(self, arg):
@@ -228,7 +254,12 @@ class BudgetShell(cmd.Cmd):
             console.print("[red]Due date must be in YYYY-MM format.[/red]")
             return
         
-        result = self.client.set_target(box, goal, due)
+        try:
+            result = self.client.set_target(box, goal, due)
+        except Exception as e:
+            console.print(f"[red]Error setting target: {e}[/red]")
+            return
+        
         console.print(f"Set target for {box}: {goal} by {due}. Result: {result}")
     
     def do_set_recurring(self, arg):
@@ -252,7 +283,11 @@ class BudgetShell(cmd.Cmd):
             console.print("[red]Monthly and target must be integers.[/red]")
             return
         
-        result = self.client.set_recurring(box, monthly, target)
+        try:
+            result = self.client.set_recurring(box, monthly, target)
+        except Exception as e:
+            console.print(f"[red]Error setting recurring: {e}[/red]")
+            return
         console.print(f"Set recurring for {box}: {monthly} monthly towards {target}")
     
     def do_remove_recurring(self, arg):
@@ -281,7 +316,12 @@ class BudgetShell(cmd.Cmd):
         except Exception:
             console.print("[red]Amount must be an integer.[/red]")
             return
-        result = self.client.new_loan(amount, due)
+        
+        try:
+            result = self.client.new_loan(amount, due)
+        except Exception as e:
+            console.print(f"[red]Error creating loan: {e}[/red]")
+            return
         console.print(f"Created new loan of {amount} due {due}. Result: {result}")
 
     def do_export_json(self, arg):
