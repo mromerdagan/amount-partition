@@ -210,6 +210,20 @@ class BudgetManagerApi(object):
 		boxname = 'self-loan'
 		if not(boxname in self.balances):
 			self.new_box(boxname)
+   
+		# Validate amount is positive
+		if amount <= 0:
+			raise ValueError("Loan amount must be positive")
+
+		# Validate due is in YYYY-MM format
+		try:
+			due_date = datetime.strptime(due, '%Y-%m')
+		except ValueError:
+			raise ValueError("Due date must be in YYYY-MM format")
+
+		# Validate due is in the future
+		if due_date <= self.now:
+			raise ValueError("Due date must be in the future")
 
 		self.balances[boxname] -= amount
 		self.balances['free'] += amount
