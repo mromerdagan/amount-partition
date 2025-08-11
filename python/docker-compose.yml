@@ -1,0 +1,22 @@
+services:
+  budget-api:
+    image: omerdagan/budget-manager-api:${IMAGE_TAG}
+    # For local dev you can build instead of pulling:
+    # build: .
+    container_name: budget-api
+    restart: unless-stopped
+
+    # Host:Container
+    ports:
+      - "${HOST_PORT}:8000"
+
+    # Persist the app data; host path is configurable via .env
+    volumes:
+      - "${DATA_DIR}:/srv/budget-manager"
+
+    # Basic health check: FastAPI docs should be reachable
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 10s
+      timeout: 2s
+      retries: 10
