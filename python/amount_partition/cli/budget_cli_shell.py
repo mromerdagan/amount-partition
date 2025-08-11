@@ -13,12 +13,21 @@ console = Console()
 
 
 class BudgetShell(cmd.Cmd):
-    intro = "[bold green]Welcome to Budget CLI[/bold green]. Type 'help' or '?' to list commands.\n"
-    prompt = "[budget] > "
-
+    intro = "Welcome to Budget CLI. Type 'help' or '?' to list commands.\n"
+    
     def __init__(self, client):
         super().__init__()
         self.client = client
+        
+        # Set up the prompt with client information
+        if hasattr(client, 'api_url') and hasattr(client, 'db_path'):
+            # Remote client
+            self.prompt = f"[budget|remote:{client.api_url}|db:{client.db_path}] > "
+        elif hasattr(client, 'db_dir'):
+            # Local client
+            self.prompt = f"[budget|local|db:{client.db_dir}] > "
+        else:
+            self.prompt = "[budget] > "
 
     def do_exit(self, arg):
         "Exit the CLI"
@@ -40,7 +49,6 @@ class BudgetShell(cmd.Cmd):
         table = Table(title="Balances")
         table.add_column("Box", style="cyan")
         table.add_column("Amount", style="magenta", justify="right")
-        print(balances)
 
         for name, amount in balances.items():
             table.add_row(name, f"{amount:.2f}")
@@ -383,6 +391,18 @@ def main():
         sys.exit(1)
 
     shell = BudgetShell(client)
+    
+    # Display a proper welcome message with Rich formatting
+    console.print("[bold green]Welcome to Budget CLI[/bold green]. Type 'help' or '?' to list commands.")
+    
+    if args.local:
+        console.print(f"[blue]Using local database:[/blue] {args.db_path}")
+    elif args.remote:
+        console.print(f"[blue]Using remote API:[/blue] {args.remote}")
+        console.print(f"[blue]Database path:[/blue] {args.db_path}")
+    
+    console.print()  # Add a blank line for better spacing
+    
     shell.cmdloop()
 
 
