@@ -1,10 +1,13 @@
+# -----------------------------
+# Config (override via CLI/env)
+# -----------------------------
 IMAGE_NAME ?= omerdagan/budget-manager-api
 TAG        ?=                          # required for build/push/release
 CONTEXT    ?= .                        # docker build context
 
 # Compose location (where docker-compose.yml and .env live)
 COMPOSE_DIR     ?= .
-DOCKER_CONTEXT  ?=                      # e.g., prod (created via `docker context create ...`)
+DOCKER_CONTEXT  ?=                     # e.g., prod (created via `docker context create ...`)
 
 # Tools
 COMPOSE_CMD := docker $(if $(DOCKER_CONTEXT),--context $(DOCKER_CONTEXT),) compose
@@ -20,12 +23,40 @@ define REQUIRE_TAG
 endef
 
 # -----------------------------
+# Helper: require git tag & HEAD at tag (unless SKIP_GIT_CHECKS=1)
+# -----------------------------
+define REQUIRE_GIT_TAG_AND_HEAD
+	@if [ "$(SKIP_GIT_CHECKS)" = "1" ]; then \
+		echo "⚠️  Skipping git tag checks (SKIP_GIT_CHECKS=1)"; \
+	else \
+		if ! git rev-parse --git-dir >/dev/null 2>&1; then \
+			echo "ERROR: Not a git repository (no .git)."; exit 1; \
+		fi; \
+		if ! git rev-parse -q --verify "refs/tags/$(TAG)" >/dev/null; then \
+			echo "ERROR: Git tag '$(TAG)' does not exist."; \
+			echo "Hint: git tag -a $(TAG) -m \"release $(TAG)\" && git push origin $(TAG)"; \
+			exit 1; \
+		fi; \
+		HEAD_TAGS=$$(git tag --points-at HEAD); \
+		echo "$$HEAD_TAGS" | tr ' ' '\n' | grep -qx "$(TAG)" || { \
+			echo "ERROR: HEAD is not at tag '$(TAG)'."; \
+			echo "Current HEAD tags: $$HEAD_TAGS"; \
+			echo "Hints:"; \
+			echo "  - git checkout $(TAG)   # move HEAD to the tagged commit"; \
+			echo "  - or retag the desired commit: git tag -f $(TAG) <commit>"; \
+			exit 1; \
+		}; \
+	fi
+endef
+
+# -----------------------------
 # Build / Push / Release
 # -----------------------------
 
 .PHONY: docker-build
 docker-build:
 	$(REQUIRE_TAG)
+	$(REQUIRE_GIT_TAG_AND_HEAD)
 	docker build \
 	  -t $(IMAGE_NAME):$(TAG) \
 	  -t $(IMAGE_NAME):latest \
@@ -34,6 +65,7 @@ docker-build:
 .PHONY: docker-push
 docker-push:
 	$(REQUIRE_TAG)
+	$(REQUIRE_GIT_TAG_AND_HEAD)
 	docker push $(IMAGE_NAME):$(TAG)
 	docker push $(IMAGE_NAME):latest
 
