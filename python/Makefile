@@ -13,6 +13,11 @@ DOCKER_CONTEXT  ?=                     # e.g., prod (created via `docker context
 COMPOSE_CMD := docker $(if $(DOCKER_CONTEXT),--context $(DOCKER_CONTEXT),) compose
 
 # -----------------------------
+# Helper: command runner
+# -----------------------------
+RUN = $(if $(DRY_RUN),@echo,)
+
+# -----------------------------
 # Helper: require TAG
 # -----------------------------
 define REQUIRE_TAG
@@ -57,7 +62,7 @@ endef
 docker-build:
 	$(REQUIRE_TAG)
 	$(REQUIRE_GIT_TAG_AND_HEAD)
-	docker build \
+	$(RUN) docker build \
 	  -t $(IMAGE_NAME):$(TAG) \
 	  -t $(IMAGE_NAME):latest \
 	  $(CONTEXT)
@@ -66,8 +71,8 @@ docker-build:
 docker-push:
 	$(REQUIRE_TAG)
 	$(REQUIRE_GIT_TAG_AND_HEAD)
-	docker push $(IMAGE_NAME):$(TAG)
-	docker push $(IMAGE_NAME):latest
+	$(RUN) docker push $(IMAGE_NAME):$(TAG)
+	$(RUN) docker push $(IMAGE_NAME):latest
 
 # Convenience: build + push
 .PHONY: release
@@ -77,13 +82,10 @@ release: docker-build docker-push
 # -----------------------------
 # Deploy (Compose)
 # -----------------------------
-# Expects docker-compose.yml and .env to be in $(COMPOSE_DIR)
-# .env should set IMAGE_TAG used by docker-compose.yml
-
 .PHONY: deploy
 deploy:
 	@echo "🚀 Deploying compose stack in $(COMPOSE_DIR) $(if $(DOCKER_CONTEXT),(context=$(DOCKER_CONTEXT)),)"
-	cd $(COMPOSE_DIR) && \
+	$(RUN) cd $(COMPOSE_DIR) && \
 	  $(COMPOSE_CMD) pull && \
 	  $(COMPOSE_CMD) up -d && \
 	  docker $(if $(DOCKER_CONTEXT),--context $(DOCKER_CONTEXT),) image prune -f
@@ -92,16 +94,15 @@ deploy:
 # -----------------------------
 # Utilities
 # -----------------------------
-
 .PHONY: status
 status:
-	cd $(COMPOSE_DIR) && $(COMPOSE_CMD) ps
+	$(RUN) cd $(COMPOSE_DIR) && $(COMPOSE_CMD) ps
 
 .PHONY: logs
 logs:
-	cd $(COMPOSE_DIR) && $(COMPOSE_CMD) logs -f budget-api
+	$(RUN) cd $(COMPOSE_DIR) && $(COMPOSE_CMD) logs -f budget-api
 
 .PHONY: restart
 restart:
-	cd $(COMPOSE_DIR) && $(COMPOSE_CMD) restart budget-api
+	$(RUN) cd $(COMPOSE_DIR) && $(COMPOSE_CMD) restart budget-api
 
