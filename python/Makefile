@@ -1,0 +1,75 @@
+IMAGE_NAME ?= omerdagan/budget-manager-api
+TAG        ?=                          # required for build/push/release
+CONTEXT    ?= .                        # docker build context
+
+# Compose location (where docker-compose.yml and .env live)
+COMPOSE_DIR     ?= .
+DOCKER_CONTEXT  ?=                      # e.g., prod (created via `docker context create ...`)
+
+# Tools
+COMPOSE_CMD := docker $(if $(DOCKER_CONTEXT),--context $(DOCKER_CONTEXT),) compose
+
+# -----------------------------
+# Helper: require TAG
+# -----------------------------
+define REQUIRE_TAG
+	@if [ -z "$(TAG)" ]; then \
+		echo "ERROR: TAG is required. Usage: make <target> TAG=1.3"; \
+		exit 1; \
+	fi
+endef
+
+# -----------------------------
+# Build / Push / Release
+# -----------------------------
+
+.PHONY: docker-build
+docker-build:
+	$(REQUIRE_TAG)
+	docker build \
+	  -t $(IMAGE_NAME):$(TAG) \
+	  -t $(IMAGE_NAME):latest \
+	  $(CONTEXT)
+
+.PHONY: docker-push
+docker-push:
+	$(REQUIRE_TAG)
+	docker push $(IMAGE_NAME):$(TAG)
+	docker push $(IMAGE_NAME):latest
+
+# Convenience: build + push
+.PHONY: release
+release: docker-build docker-push
+	@echo "✅ Released $(IMAGE_NAME):$(TAG) and latest"
+
+# -----------------------------
+# Deploy (Compose)
+# -----------------------------
+# Expects docker-compose.yml and .env to be in $(COMPOSE_DIR)
+# .env should set IMAGE_TAG used by docker-compose.yml
+
+.PHONY: deploy
+deploy:
+	@echo "🚀 Deploying compose stack in $(COMPOSE_DIR) $(if $(DOCKER_CONTEXT),(context=$(DOCKER_CONTEXT)),)"
+	cd $(COMPOSE_DIR) && \
+	  $(COMPOSE_CMD) pull && \
+	  $(COMPOSE_CMD) up -d && \
+	  docker $(if $(DOCKER_CONTEXT),--context $(DOCKER_CONTEXT),) image prune -f
+	@echo "✅ Deploy complete"
+
+# -----------------------------
+# Utilities
+# -----------------------------
+
+.PHONY: status
+status:
+	cd $(COMPOSE_DIR) && $(COMPOSE_CMD) ps
+
+.PHONY: logs
+logs:
+	cd $(COMPOSE_DIR) && $(COMPOSE_CMD) logs -f budget-api
+
+.PHONY: restart
+restart:
+	cd $(COMPOSE_DIR) && $(COMPOSE_CMD) restart budget-api
+
