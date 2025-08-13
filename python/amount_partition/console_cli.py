@@ -36,8 +36,8 @@ def summary(db_dir: str = typer.Option('.', '--db-dir', help="Path to the databa
     manager = BudgetManagerApi.from_storage(db_dir)
     print_summary(
         balances=manager.balances,
-        targets=manager.targets,
-        recurring=manager.recurring,
+        targets=manager._targets,
+        recurring=manager._recurring,
         total=manager.get_total()
     )
 

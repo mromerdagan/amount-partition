@@ -14,7 +14,7 @@ class BudgetManagerApi(object):
 
 	def __init__(self, balances=None, targets=None, recurring=None):
 		self._balances = balances or OrderedDict({"free": 0, "credit-spent": 0})
-		self.targets = targets or OrderedDict()
+		self._targets = targets or OrderedDict()
 		self._recurring = recurring or OrderedDict()
 		self.now = datetime.now()
 
@@ -91,7 +91,7 @@ class BudgetManagerApi(object):
 		partition = dict(self._balances)
 
 		# goals: {boxname: {"goal": int, "due": "YYYY-MM"}}
-		goals = {target_name: target.to_json() for target_name, target in self.targets.items()}
+		goals = {target_name: target.to_json() for target_name, target in self._targets.items()}
 
 		# periodic: {boxname: {"amount": int, "target": int}}
 		periodic = {recurring_name: recurring.to_json() for recurring_name, recurring in self._recurring.items()}
@@ -103,7 +103,7 @@ class BudgetManagerApi(object):
 		Write the current state to files in the database directory.
 		"""
 		db_path = Path(db_dir)
-		self.dump_data_static(db_path, self._balances, self.targets, self._recurring)
+		self.dump_data_static(db_path, self._balances, self._targets, self._recurring)
 
 
 	@staticmethod
@@ -140,7 +140,7 @@ class BudgetManagerApi(object):
 
 	def get_targets(self) -> dict[str, Target]:
 		"""Return a dictionary of Target objects for each balance with a target."""
-		return {k: Target(goal=v.goal, due=v.due) for k, v in self.targets.items()}
+		return {k: Target(goal=v.goal, due=v.due) for k, v in self._targets.items()}
 
 	def get_recurring(self) -> dict[str, PeriodicDeposit]:
 		"""Return a dictionary of PeriodicDeposit objects for each balance with a recurring deposit."""
@@ -212,8 +212,8 @@ class BudgetManagerApi(object):
 		self.spend(boxname)
 		del(self._balances[boxname])
 
-		if boxname in self.targets:
-			del(self.targets[boxname])
+		if boxname in self._targets:
+			del(self._targets[boxname])
 
 		if boxname in self._recurring:
 			del(self._recurring[boxname])
@@ -248,18 +248,18 @@ class BudgetManagerApi(object):
 		if not(boxname in self._balances):
 			raise KeyError(f"Key '{boxname}' is missing from database ('{self.db_dir}')")
 		due = datetime.strptime(due, '%Y-%m')
-		self.targets[boxname] = Target(goal=goal, due=due)
+		self._targets[boxname] = Target(goal=goal, due=due)
 
 	def remove_target(self, boxname: str) -> None:
 		"""Remove a target for the given balance."""
-		if not(boxname in self.targets):
+		if not(boxname in self._targets):
 			raise KeyError(f"Key '{boxname}' is missing from targets ('{self.targets_path}')")
-		del(self.targets[boxname])
+		del(self._targets[boxname])
 	
 	def target_monthly_deposit(self, boxname: str, after_monthly_deposit: bool) -> int:
 		# TODO: Replace this function with Target method
 		"""Calculate the required monthly deposit to reach a target by its due date."""
-		target = self.targets[boxname]
+		target = self._targets[boxname]
 		goal = target.goal
 		due = target.due
 		curr_amount = self._balances[boxname]
@@ -286,7 +286,7 @@ class BudgetManagerApi(object):
 	def remove_recurring(self, boxname: str) -> None:
 		"""Remove a recurring deposit for the given balance."""
 		if not(boxname in self._recurring):
-			raise KeyError(f"Key '{boxname}' is missing from recurring deposits ('{self._recurring_path}')")
+			raise KeyError(f"Key '{boxname}' is missing from recurring deposits ('{self.recurring_path}')")
 		del(self._recurring[boxname])
 	
 	def _periodic_months_left(self, boxname: str) -> int:
@@ -322,7 +322,7 @@ class BudgetManagerApi(object):
 		"""
 		suggestion = {}
 		skip = skip.split(',')
-		for boxname in self.targets:
+		for boxname in self._targets:
 			if boxname in skip:
 				continue
 			box_suggestion = self.target_monthly_deposit(boxname, additional_suggestion)
@@ -370,9 +370,9 @@ class BudgetManagerApi(object):
 		"""
 		today = datetime.now()
 		tuples = []
-		for x in self.targets:
+		for x in self._targets:
 			amount_got = self._balances[x]
-			due_date = self.targets[x].due
+			due_date = self._targets[x].due
 			delta = due_date - today
 			days_left = delta.days
 			tuples.append((amount_got, days_left))
@@ -386,6 +386,8 @@ class BudgetManagerApi(object):
 
 
 if __name__ == "__main__": ## DEBUG
-	homedir = os.environ['HOME']
-	DB = f"{homedir}/git/finance/partition-bp"
-	fp = BudgetManagerApi.from_storage(DB)
+	# homedir = os.environ['HOME']
+	# DB = f"{homedir}/git/finance/partition-bp"
+	# fp = BudgetManagerApi.from_storage(DB)
+	fp = BudgetManagerApi()
+	

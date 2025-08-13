@@ -71,15 +71,15 @@ class TestDeposit(unittest.TestCase):
         shutil.rmtree(self.tempdir)
 
     def test_deposit_increases_free(self):
-        initial = self.db.balances['free']
+        initial = self.db._balances['free']
         self.db.deposit(100)
-        self.assertEqual(self.db.balances['free'], initial + 100)
+        self.assertEqual(self.db._balances['free'], initial + 100)
 
     def test_deposit_merges_credit(self):
-        self.db.balances['credit-spent'] = 50
+        self.db._balances['credit-spent'] = 50
         self.db.deposit(100, merge_with_credit=True)
-        self.assertEqual(self.db.balances['free'], 150)
-        self.assertEqual(self.db.balances['credit-spent'], 0)
+        self.assertEqual(self.db._balances['free'], 150)
+        self.assertEqual(self.db._balances['credit-spent'], 0)
 
 class TestWithdraw(unittest.TestCase):
     def setUp(self):
@@ -93,11 +93,11 @@ class TestWithdraw(unittest.TestCase):
 
     def test_withdraw_amount(self):
         self.db.withdraw(50)
-        self.assertEqual(self.db.balances['free'], 150)
+        self.assertEqual(self.db._balances['free'], 150)
 
     def test_withdraw_all(self):
         self.db.withdraw()
-        self.assertEqual(self.db.balances['free'], 0)
+        self.assertEqual(self.db._balances['free'], 0)
 
 class TestSpend(unittest.TestCase):
     def setUp(self):
@@ -113,16 +113,16 @@ class TestSpend(unittest.TestCase):
 
     def test_spend_amount(self):
         self.db.spend('test', 40)
-        self.assertEqual(self.db.balances['test'], 60)
+        self.assertEqual(self.db._balances['test'], 60)
 
     def test_spend_all(self):
         self.db.spend('test')
-        self.assertEqual(self.db.balances['test'], 0)
+        self.assertEqual(self.db._balances['test'], 0)
 
     def test_spend_with_credit(self):
         self.db.spend('test', 20, use_credit=True)
-        self.assertEqual(self.db.balances['test'], 80)
-        self.assertEqual(self.db.balances['credit-spent'], 20)
+        self.assertEqual(self.db._balances['test'], 80)
+        self.assertEqual(self.db._balances['credit-spent'], 20)
 
 class TestAddToBalance(unittest.TestCase):
     def setUp(self):
@@ -137,8 +137,8 @@ class TestAddToBalance(unittest.TestCase):
 
     def test_add_to_balance(self):
         self.db.add_to_balance('test', 50)
-        self.assertEqual(self.db.balances['test'], 50)
-        self.assertEqual(self.db.balances['free'], 150)
+        self.assertEqual(self.db._balances['test'], 50)
+        self.assertEqual(self.db._balances['free'], 150)
 
 class TestTransferBetweenBalances(unittest.TestCase):
     def setUp(self):
@@ -156,8 +156,8 @@ class TestTransferBetweenBalances(unittest.TestCase):
 
     def test_transfer(self):
         self.db.transfer_between_balances('a', 'b', 30)
-        self.assertEqual(self.db.balances['a'], 70)
-        self.assertEqual(self.db.balances['b'], 80)
+        self.assertEqual(self.db._balances['a'], 70)
+        self.assertEqual(self.db._balances['b'], 80)
 
 class TestNewBoxRemoveBox(unittest.TestCase):
     def setUp(self):
@@ -170,14 +170,14 @@ class TestNewBoxRemoveBox(unittest.TestCase):
 
     def test_new_box(self):
         self.db.new_box('newbox')
-        self.assertIn('newbox', self.db.balances)
+        self.assertIn('newbox', self.db._balances)
 
     def test_remove_box(self):
         self.db.new_box('toremove')
         self.db.deposit(100)
         self.db.add_to_balance('toremove', 10)
         self.db.remove_box('toremove')
-        self.assertNotIn('toremove', self.db.balances)
+        self.assertNotIn('toremove', self.db._balances)
 
 class TestNewLoan(unittest.TestCase):
     def setUp(self):
@@ -190,10 +190,10 @@ class TestNewLoan(unittest.TestCase):
 
     def test_new_loan(self):
         self.db.new_loan(100, '2030-01')
-        self.assertIn('self-loan', self.db.balances)
-        self.assertEqual(self.db.balances['self-loan'], -100)
-        self.assertEqual(self.db.balances['free'], 100)
-        self.assertIn('self-loan', self.db.targets)
+        self.assertIn('self-loan', self.db._balances)
+        self.assertEqual(self.db._balances['self-loan'], -100)
+        self.assertEqual(self.db._balances['free'], 100)
+        self.assertIn('self-loan', self.db._targets)
 
 class TestSetTarget(unittest.TestCase):
     def setUp(self):
@@ -207,9 +207,9 @@ class TestSetTarget(unittest.TestCase):
 
     def test_set_target(self):
         self.db.set_target('goalbox', 500, '2030-01')
-        self.assertIn('goalbox', self.db.targets)
-        self.assertEqual(self.db.targets['goalbox'].goal, 500)
-        self.assertEqual(self.db.targets['goalbox'].due.strftime('%Y-%m'), '2030-01')
+        self.assertIn('goalbox', self.db._targets)
+        self.assertEqual(self.db._targets['goalbox'].goal, 500)
+        self.assertEqual(self.db._targets['goalbox'].due.strftime('%Y-%m'), '2030-01')
 
 class TestSuggestDepositsApplySuggestion(unittest.TestCase):
     def setUp(self):
@@ -236,10 +236,10 @@ class TestSuggestDepositsApplySuggestion(unittest.TestCase):
         suggestion = self.db.suggest_deposits()
         self.db.apply_suggestion(suggestion)
         # After applying, balances should increase by suggested amount
-        self.assertEqual(self.db.balances['box1'], suggestion['box1'])
-        self.assertEqual(self.db.balances['box2'], suggestion['box2'])
+        self.assertEqual(self.db._balances['box1'], suggestion['box1'])
+        self.assertEqual(self.db._balances['box2'], suggestion['box2'])
         # 'free' should decrease by the sum
-        self.assertEqual(self.db.balances['free'], 1000 - suggestion['box1'] - suggestion['box2'])
+        self.assertEqual(self.db._balances['free'], 1000 - suggestion['box1'] - suggestion['box2'])
 
 
 class TestToJson(unittest.TestCase):
@@ -284,12 +284,12 @@ class TestFromJson(unittest.TestCase):
         db = BudgetManagerApi.from_json(self.data)
         self.assertEqual(db.balances['free'], 100)
         self.assertEqual(db.balances['box2'], 50)
-        self.assertIn('box2', db.targets)
-        self.assertEqual(db.targets['box2'].goal, 200)
-        self.assertEqual(db.targets['box2'].due.strftime('%Y-%m'), '2031-05')
-        self.assertIn('box2', db.recurring)
-        self.assertEqual(db.recurring['box2'].amount, 20)
-        self.assertEqual(db.recurring['box2'].target, 100)
+        self.assertIn('box2', db._targets)
+        self.assertEqual(db._targets['box2'].goal, 200)
+        self.assertEqual(db._targets['box2'].due.strftime('%Y-%m'), '2031-05')
+        self.assertIn('box2', db._recurring)
+        self.assertEqual(db._recurring['box2'].amount, 20)
+        self.assertEqual(db._recurring['box2'].target, 100)
 
 
 if __name__ == '__main__':
