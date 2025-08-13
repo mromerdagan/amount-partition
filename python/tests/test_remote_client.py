@@ -13,7 +13,7 @@ class TestRemoteBudgetManagerClient(unittest.TestCase):
     def test_get_balances(self, mock_get):
         mock_response = Mock()
         mock_response.json.return_value = {"free":{"name": "free", "amount": 100}, "vacation": {"name": "vacation", "amount": 50}}
-        mock_response.raise_for_status = Mock()
+        mock_response.status_code = 200
         mock_get.return_value = mock_response
 
         result = self.client.get_balances()
@@ -25,7 +25,7 @@ class TestRemoteBudgetManagerClient(unittest.TestCase):
     def test_deposit(self, mock_post):
         mock_response = Mock()
         mock_response.json.return_value = {"free": 200}
-        mock_response.raise_for_status = Mock()
+        mock_response.status_code = 200
         mock_post.return_value = mock_response
 
         result = self.client.deposit(100, merge_with_credit=True)
@@ -40,7 +40,7 @@ class TestRemoteBudgetManagerClient(unittest.TestCase):
     def test_list_balances(self, mock_get):
         mock_response = Mock()
         mock_response.json.return_value = ["free", "vacation"]
-        mock_response.raise_for_status = Mock()
+        mock_response.status_code = 200
         mock_get.return_value = mock_response
 
         result = self.client.list_balances()
@@ -57,7 +57,7 @@ class TestRemoteBudgetManagerClient(unittest.TestCase):
                 "due": "2030-01"
             }
         }
-        mock_response.raise_for_status = Mock()
+        mock_response.status_code = 200
         mock_get.return_value = mock_response
 
         result = self.client.get_targets()
@@ -71,7 +71,7 @@ class TestRemoteBudgetManagerClient(unittest.TestCase):
     def test_set_target(self, mock_post):
         mock_response = Mock()
         mock_response.json.return_value = {"status": "ok"}
-        mock_response.raise_for_status = Mock()
+        mock_response.status_code = 200
         mock_post.return_value = mock_response
 
         result = self.client.set_target("vacation", 500, "2030-01")
@@ -86,7 +86,7 @@ class TestRemoteBudgetManagerClient(unittest.TestCase):
     def test_withdraw(self, mock_post):
         mock_response = Mock()
         mock_response.json.return_value = {"free": 0}
-        mock_response.raise_for_status = Mock()
+        mock_response.status_code = 200
         mock_post.return_value = mock_response
 
         result = self.client.withdraw(50)
@@ -101,7 +101,7 @@ class TestRemoteBudgetManagerClient(unittest.TestCase):
     def test_add_to_balance(self, mock_post):
         mock_response = Mock()
         mock_response.json.return_value = {"balance": 100, "free": 900}
-        mock_response.raise_for_status = Mock()
+        mock_response.status_code = 200
         mock_post.return_value = mock_response
 
         result = self.client.add_to_balance("vacation", 100)
@@ -116,7 +116,7 @@ class TestRemoteBudgetManagerClient(unittest.TestCase):
     def test_new_box(self, mock_post):
         mock_response = Mock()
         mock_response.json.return_value = {"status": "ok"}
-        mock_response.raise_for_status = Mock()
+        mock_response.status_code = 200
         mock_post.return_value = mock_response
 
         result = self.client.new_box("newbox")
@@ -131,7 +131,7 @@ class TestRemoteBudgetManagerClient(unittest.TestCase):
     def test_remove_box(self, mock_post):
         mock_response = Mock()
         mock_response.json.return_value = {"status": "ok"}
-        mock_response.raise_for_status = Mock()
+        mock_response.status_code = 200
         mock_post.return_value = mock_response
 
         result = self.client.remove_box("oldbox")
@@ -146,7 +146,7 @@ class TestRemoteBudgetManagerClient(unittest.TestCase):
     def test_new_loan(self, mock_post):
         mock_response = Mock()
         mock_response.json.return_value = {"status": "ok"}
-        mock_response.raise_for_status = Mock()
+        mock_response.status_code = 200
         mock_post.return_value = mock_response
 
         result = self.client.new_loan(500, "2030-01")
@@ -161,7 +161,7 @@ class TestRemoteBudgetManagerClient(unittest.TestCase):
     def test_create_db(self, mock_post):
         mock_response = Mock()
         mock_response.json.return_value = {"status": "created", "location": "/tmp/db"}
-        mock_response.raise_for_status = Mock()
+        mock_response.status_code = 200
         mock_post.return_value = mock_response
 
         result = self.client.create_db("/tmp/db")
@@ -175,7 +175,7 @@ class TestRemoteBudgetManagerClient(unittest.TestCase):
     def test_spend(self, mock_post):
         mock_response = Mock()
         mock_response.json.return_value = {"balance": 0, "credit-spent": 0}
-        mock_response.raise_for_status = Mock()
+        mock_response.status_code = 200
         mock_post.return_value = mock_response
 
         result = self.client.spend("vacation", 50, use_credit=True)
