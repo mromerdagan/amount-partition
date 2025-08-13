@@ -13,10 +13,22 @@ DAYS_IN_MONTH = 30  # Used for monthly calculations
 class BudgetManagerApi(object):
 
 	def __init__(self, balances=None, targets=None, recurring=None):
-		self.balances = balances or OrderedDict({"free": 0, "credit-spent": 0})
-		self.targets = targets or OrderedDict()
-		self.recurring = recurring or OrderedDict()
+		self._balances = balances or OrderedDict({"free": 0, "credit-spent": 0})
+		self._targets = targets or OrderedDict()
+		self._recurring = recurring or OrderedDict()
 		self.now = datetime.now()
+
+	@property
+	def balances(self) -> OrderedDict:
+		"""Return balances including virtual boxes like 'total'."""
+		# Start with the actual balances
+		result = self._balances.copy()
+		
+		# Add virtual box: total
+		total = sum(self._balances.values())
+		result['total'] = total
+		
+		return result
 
 	@classmethod
 	def from_storage(cls, db_dir: str) -> 'BudgetManagerApi':
@@ -76,13 +88,13 @@ class BudgetManagerApi(object):
 		Serialize the current state to a JSON-serializable dict with keys: partition, goals, periodic.
 		"""
 		# partition: {boxname: amount}
-		partition = dict(self.balances)
+		partition = dict(self._balances)
 
 		# goals: {boxname: {"goal": int, "due": "YYYY-MM"}}
-		goals = {target_name: target.to_json() for target_name, target in self.targets.items()}
+		goals = {target_name: target.to_json() for target_name, target in self._targets.items()}
 
 		# periodic: {boxname: {"amount": int, "target": int}}
-		periodic = {recurring_name: recurring.to_json() for recurring_name, recurring in self.recurring.items()}
+		periodic = {recurring_name: recurring.to_json() for recurring_name, recurring in self._recurring.items()}
 
 		return {"partition": partition, "goals": goals, "periodic": periodic}
 
@@ -91,7 +103,7 @@ class BudgetManagerApi(object):
 		Write the current state to files in the database directory.
 		"""
 		db_path = Path(db_dir)
-		self.dump_data_static(db_path, self.balances, self.targets, self.recurring)
+		self.dump_data_static(db_path, self._balances, self._targets, self._recurring)
 
 
 	@staticmethod
@@ -118,97 +130,98 @@ class BudgetManagerApi(object):
    
 	def list_balances(self) -> list[str]:
 		"""Return a list of balance names."""
-		return list(self.balances.keys())
+		return list(self._balances.keys())
 
 	def get_total(self) -> int:
+		# TODO: remove this method
 		"""Return the total sum of all balances."""
-		amounts = [self.balances[boxname] for boxname in self.balances]
+		amounts = [self._balances[boxname] for boxname in self._balances]
 		return sum(amounts)
 
 	def get_targets(self) -> dict[str, Target]:
 		"""Return a dictionary of Target objects for each balance with a target."""
-		return {k: Target(goal=v.goal, due=v.due) for k, v in self.targets.items()}
+		return {k: Target(goal=v.goal, due=v.due) for k, v in self._targets.items()}
 
 	def get_recurring(self) -> dict[str, PeriodicDeposit]:
 		"""Return a dictionary of PeriodicDeposit objects for each balance with a recurring deposit."""
-		return {k: PeriodicDeposit(amount=v.amount, target=v.target) for k, v in self.recurring.items()}
+		return {k: PeriodicDeposit(amount=v.amount, target=v.target) for k, v in self._recurring.items()}
 
 	def deposit(self, amount: int, merge_with_credit: bool = True) -> None:
 		"""Deposit an amount into 'free'. Optionally merge 'credit-spent'."""
-		self.balances['free'] += amount
+		self._balances['free'] += amount
 		if merge_with_credit:
-			self.balances['free'] += self.balances['credit-spent']
-			self.balances['credit-spent'] = 0
+			self._balances['free'] += self._balances['credit-spent']
+			self._balances['credit-spent'] = 0
 
 	def withdraw(self, amount: int = 0) -> None:
 		"""Withdraw an amount from 'free'. If amount is 0, empty 'free'."""
 		if not(amount):
-			self.balances['free'] = 0
+			self._balances['free'] = 0
 		else:
-			if amount > self.balances['free']:
-				raise ValueError("'free' box must be greater or equal to 0 (max reduction: {})".format(self.balances['free']))
-			self.balances['free'] -= amount
+			if amount > self._balances['free']:
+				raise ValueError("'free' box must be greater or equal to 0 (max reduction: {})".format(self._balances['free']))
+			self._balances['free'] -= amount
 
 	def spend(self, boxname: str, amount: int = 0, use_credit: bool = False) -> None:
 		"""Spend an amount from a balance. If use_credit, add to 'credit-spent'."""
-		if not(boxname in self.balances):
+		if not(boxname in self._balances):
 			raise KeyError(f"Key '{boxname}' is missing from balances")
 		if not(amount):
-			amount = self.balances[boxname]
+			amount = self._balances[boxname]
 
-		if amount > self.balances[boxname]:
-			raise ValueError(f'Balance values must be greater or equal to 0 (max reduction {self.balances[boxname]})')
+		if amount > self._balances[boxname]:
+			raise ValueError(f'Balance values must be greater or equal to 0 (max reduction {self._balances[boxname]})')
 
-		self.balances[boxname] -= amount # reduce amount from balance
+		self._balances[boxname] -= amount # reduce amount from balance
 		if use_credit:
-			self.balances['credit-spent'] += amount
+			self._balances['credit-spent'] += amount
 
 	def add_to_balance(self, boxname: str, amount: int) -> None:
 		"""Increase a balance by amount, decreasing 'free' by the same amount."""
-		if not(boxname in self.balances):
+		if not(boxname in self._balances):
 			raise KeyError(f"Key '{boxname}' is missing from database")
-		if amount > self.balances['free']:
-			raise ValueError(f"Trying to add amount larger than available at 'free' (free={self.balances['free']})")
+		if amount > self._balances['free']:
+			raise ValueError(f"Trying to add amount larger than available at 'free' (free={self._balances['free']})")
 
-		self.balances['free'] -= amount
-		self.balances[boxname] += amount
+		self._balances['free'] -= amount
+		self._balances[boxname] += amount
 	
 	def transfer_between_balances(self, from_box: str, to_box: str, amount: int) -> None:
 		"""Transfer amount from one balance to another."""
 		for boxname in [from_box, to_box]:
-			if not(boxname in self.balances):
+			if not(boxname in self._balances):
 				raise KeyError(f"Key '{boxname}' is missing from database")
 
-		if amount > self.balances[from_box]:
-			raise ValueError(f'Amount in source balance not sufficient (existing amount: {self.balances[from_box]})')
+		if amount > self._balances[from_box]:
+			raise ValueError(f'Amount in source balance not sufficient (existing amount: {self._balances[from_box]})')
 
-		self.balances[from_box] -= amount
-		self.balances[to_box] += amount
+		self._balances[from_box] -= amount
+		self._balances[to_box] += amount
 
 
 	def new_box(self, boxname: str) -> None:
 		"""Create a new balance with the given name and zero value."""
-		if boxname in self.balances:
+		if boxname in self._balances:
 			raise KeyError(f"Key '{boxname}' is already in database")
-		self.balances[boxname] = 0
+		self._balances[boxname] = 0
 
 	def remove_box(self, boxname: str) -> None:
 		"""Remove a balance and transfer its amount to 'free'. Also remove related targets and recurring entries."""
-		if not(boxname in self.balances):
+		if not(boxname in self._balances):
 			raise KeyError(f"Key '{boxname}' is missing from database")
 		self.spend(boxname)
-		del(self.balances[boxname])
+		del(self._balances[boxname])
 
-		if boxname in self.targets:
-			del(self.targets[boxname])
+		if boxname in self._targets:
+			del(self._targets[boxname])
 
-		if boxname in self.recurring:
-			del(self.recurring[boxname])
+		if boxname in self._recurring:
+			del(self._recurring[boxname])
 	
 	def new_loan(self, amount: int, due: str) -> None:
 		"""Create a self-loan balance with a negative amount and a target to repay by due date."""
 		boxname = 'self-loan'
-		if not(boxname in self.balances):
+		if not(boxname in self._balances):
 			self.new_box(boxname)
    
 		# Validate amount is positive
@@ -225,31 +238,31 @@ class BudgetManagerApi(object):
 		if due_date <= self.now:
 			raise ValueError("Due date must be in the future")
 
-		self.balances[boxname] -= amount
-		self.balances['free'] += amount
+		self._balances[boxname] -= amount
+		self._balances['free'] += amount
 		self.set_target(boxname, 0, due)
 	
 	####  goal methods
 	def set_target(self, boxname: str, goal: int, due: str) -> None:
 		"""Set a target amount and due date for a balance."""
-		if not(boxname in self.balances):
+		if not(boxname in self._balances):
 			raise KeyError(f"Key '{boxname}' is missing from database ('{self.db_dir}')")
 		due = datetime.strptime(due, '%Y-%m')
-		self.targets[boxname] = Target(goal=goal, due=due)
+		self._targets[boxname] = Target(goal=goal, due=due)
 
 	def remove_target(self, boxname: str) -> None:
 		"""Remove a target for the given balance."""
-		if not(boxname in self.targets):
+		if not(boxname in self._targets):
 			raise KeyError(f"Key '{boxname}' is missing from targets ('{self.targets_path}')")
-		del(self.targets[boxname])
+		del(self._targets[boxname])
 	
 	def target_monthly_deposit(self, boxname: str, after_monthly_deposit: bool) -> int:
 		# TODO: Replace this function with Target method
 		"""Calculate the required monthly deposit to reach a target by its due date."""
-		target = self.targets[boxname]
+		target = self._targets[boxname]
 		goal = target.goal
 		due = target.due
-		curr_amount = self.balances[boxname]
+		curr_amount = self._balances[boxname]
 		diff = due - self.now
 		months_left = math.ceil(diff.days / DAYS_IN_MONTH)
 		if after_monthly_deposit:
@@ -266,21 +279,21 @@ class BudgetManagerApi(object):
 	#### Recurring payments related methods
 	def set_recurring(self, boxname: str, periodic_amount: int, target: int = 0) -> None:
 		"""Set a recurring deposit for a balance, with an optional target amount."""
-		if not(boxname in self.balances):
+		if not(boxname in self._balances):
 			raise KeyError(f"Key '{boxname}' is missing from database ('{self.db_dir}')")
-		self.recurring[boxname] = PeriodicDeposit(periodic_amount, target)
+		self._recurring[boxname] = PeriodicDeposit(periodic_amount, target)
 
 	def remove_recurring(self, boxname: str) -> None:
 		"""Remove a recurring deposit for the given balance."""
-		if not(boxname in self.recurring):
+		if not(boxname in self._recurring):
 			raise KeyError(f"Key '{boxname}' is missing from recurring deposits ('{self.recurring_path}')")
-		del(self.recurring[boxname])
+		del(self._recurring[boxname])
 	
 	def _periodic_months_left(self, boxname: str) -> int:
 		# TODO: implement in PeriodicDeposit as a method
 		"""Return the number of months left to reach the recurring target for a balance."""
-		missing = self.recurring[boxname].target - self.balances[boxname]
-		left = missing / self.recurring[boxname].amount
+		missing = self._recurring[boxname].target - self._balances[boxname]
+		left = missing / self._recurring[boxname].amount
 		left = math.ceil(left)
 		return left
 
@@ -309,7 +322,7 @@ class BudgetManagerApi(object):
 		"""
 		suggestion = {}
 		skip = skip.split(',')
-		for boxname in self.targets:
+		for boxname in self._targets:
 			if boxname in skip:
 				continue
 			box_suggestion = self.target_monthly_deposit(boxname, additional_suggestion)
@@ -317,34 +330,34 @@ class BudgetManagerApi(object):
 				continue
 			suggestion[boxname] = box_suggestion
 
-		for boxname in self.recurring:
+		for boxname in self._recurring:
 			if boxname in suggestion:
 				raise KeyError(f"Key '{boxname}' appears in 'recurring' as well as in 'targets'")
 			if boxname in skip:
 				continue
 			should_recurring = \
-					self.recurring[boxname].target == 0 or \
-					self.balances[boxname] < self.recurring[boxname].target
+					self._recurring[boxname].target == 0 or \
+					self._balances[boxname] < self._recurring[boxname].target
 			if not(should_recurring):
 				continue
 
 			# Calculate how much should be added in this deposit
-			if self.recurring[boxname].target == 0:
-				suggestion[boxname] = self.recurring[boxname].amount
-			elif (self.balances[boxname] + self.recurring[boxname].amount) < self.recurring[boxname].target:
-				suggestion[boxname] = self.recurring[boxname].amount
+			if self._recurring[boxname].target == 0:
+				suggestion[boxname] = self._recurring[boxname].amount
+			elif (self._balances[boxname] + self._recurring[boxname].amount) < self._recurring[boxname].target:
+				suggestion[boxname] = self._recurring[boxname].amount
 			else: # Missing part is less than usual amount
-				suggestion[boxname] = self.recurring[boxname].target - self.balances[boxname]
+				suggestion[boxname] = self._recurring[boxname].target - self._balances[boxname]
 		return suggestion
 
 	def apply_suggestion(self, suggestion: dict[str, int]) -> None:
 		"""Apply a deposit suggestion to the balances, updating their values."""
 		suggestion_sum = sum([suggestion[boxname] for boxname in suggestion])
-		if suggestion_sum > self.balances['free']:
-			missing = suggestion_sum - self.balances['free']
+		if suggestion_sum > self._balances['free']:
+			missing = suggestion_sum - self._balances['free']
 			raise ValueError(f"Cannot apply suggestion- missing {missing} in 'free'")
 		for boxname in suggestion:
-			if boxname not in self.balances:
+			if boxname not in self._balances:
 				raise KeyError(f"Key '{boxname}' is missing from database")
 			self.add_to_balance(boxname, suggestion[boxname])
 	
@@ -357,9 +370,9 @@ class BudgetManagerApi(object):
 		"""
 		today = datetime.now()
 		tuples = []
-		for x in self.targets:
-			amount_got = self.balances[x]
-			due_date = self.targets[x].due
+		for x in self._targets:
+			amount_got = self._balances[x]
+			due_date = self._targets[x].due
 			delta = due_date - today
 			days_left = delta.days
 			tuples.append((amount_got, days_left))
@@ -373,6 +386,8 @@ class BudgetManagerApi(object):
 
 
 if __name__ == "__main__": ## DEBUG
-	homedir = os.environ['HOME']
-	DB = f"{homedir}/git/finance/partition-bp"
-	fp = BudgetManagerApi.from_storage(DB)
+	# homedir = os.environ['HOME']
+	# DB = f"{homedir}/git/finance/partition-bp"
+	# fp = BudgetManagerApi.from_storage(DB)
+	fp = BudgetManagerApi()
+	

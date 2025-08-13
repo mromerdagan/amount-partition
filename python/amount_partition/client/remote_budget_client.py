@@ -19,6 +19,7 @@ class RemoteBudgetManagerClient(BudgetManagerClient):
                 error_message = response.json().get("detail", "Unknown error")
             except Exception:
                 error_message = response.text
+            error_message = f"Error {response.status_code}: {error_message}"
             raise RuntimeError(error_message)
     
     def list_balances(self):
