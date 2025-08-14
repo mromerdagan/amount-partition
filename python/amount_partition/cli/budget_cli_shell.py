@@ -1,3 +1,4 @@
+import os
 import json
 import argparse
 import cmd
@@ -20,12 +21,13 @@ class BudgetShell(cmd.Cmd):
         self.client = client
         
         # Set up the prompt with client information
-        if hasattr(client, 'api_url') and hasattr(client, 'db_path'):
-            # Remote client
+        if isinstance(client, RemoteBudgetManagerClient):
             self.prompt = f"[budget|remote:{client.api_url}|db:{client.db_path}] > "
-        elif hasattr(client, 'db_dir'):
+            self.db_location = client.db_path
+        elif isinstance(client, LocalBudgetManagerClient):
             # Local client
             self.prompt = f"[budget|local|db:{client.db_dir}] > "
+            self.db_location = client.db_dir
         else:
             self.prompt = "[budget] > "
 
