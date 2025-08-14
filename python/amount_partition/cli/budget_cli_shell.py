@@ -39,13 +39,21 @@ class BudgetShell(cmd.Cmd):
 
     def do_list(self, arg):
         "List all box names"
-        box_names = self.client.list_balances()
-        for name in box_names:
-            console.print(f"- {name}")
+        try:
+            box_names = self.client.list_balances()
+            for name in box_names:
+                console.print(f"- {name}")
+        except Exception as e:
+            console.print(f"[red]Error listing boxes: {e}[/red]")
 
     def do_balances(self, arg):
         "Show current balances"
-        balances = self.client.get_balances()
+        try:
+            balances = self.client.get_balances()
+        except Exception as e:
+            console.print(f"[red]Error fetching balances: {e}[/red]")
+            return
+
         table = Table(title="Balances")
         table.add_column("Box", style="cyan")
         table.add_column("Amount", style="magenta", justify="right")
@@ -69,8 +77,13 @@ class BudgetShell(cmd.Cmd):
         table.add_column("Months Left", style="blue", justify="right")
         table.add_column("Monthly Payment", style="magenta", justify="right")
         
-        targets = self.client.get_targets()
-        balances = self.client.get_balances()
+        try:
+            targets = self.client.get_targets()
+            balances = self.client.get_balances()
+        except Exception as e:
+            console.print(f"[red]Error fetching targets or balances: {e}[/red]")
+            return
+
         for target_name, target in targets.items():
             name = target_name
             goal = target.goal
@@ -91,8 +104,13 @@ class BudgetShell(cmd.Cmd):
         table.add_column("Target", style="green")
         table.add_column("Current Balance", style="yellow", justify="right")
         
-        recurring = self.client.get_recurring()
-        balances = self.client.get_balances()
+        try:
+            recurring = self.client.get_recurring()
+            balances = self.client.get_balances()
+        except Exception as e:
+            console.print(f"[red]Error fetching recurring deposits or balances: {e}[/red]")
+            return
+
         for name, periodic in recurring.items():
             amount = periodic.amount
             target = periodic.target
@@ -332,6 +350,15 @@ class BudgetShell(cmd.Cmd):
             return
         console.print(f"Created new loan of {amount} due {due}. Result: {result}")
 
+    def do_create_db(self, arg):
+        "Create a new database. Usage: create_db"
+        try:
+            result = self.client.create_db(self.db_location)
+        except Exception as e:
+            console.print(f"[red]Error creating database: {e}[/red]")
+            return
+        console.print(f"Created new database at {self.db_location}. Result: {result}")
+
     def do_export_json(self, arg):
         "Export database to JSON file. Usage: export_json <to-file>"
         args = arg.strip().split()
@@ -353,7 +380,12 @@ class BudgetShell(cmd.Cmd):
         if not src_file:
             console.print("[red]Usage: import_json <src-file>[/red]")
             return
-        import json
+        
+        # If file is missing, issue an error message
+        if not os.path.isfile(src_file):
+            console.print(f"[red]File not found:[/red] {src_file}")
+            return
+
         with open(src_file, 'r') as f:
             data = json.load(f)
         if hasattr(self.client, 'import_json'):
