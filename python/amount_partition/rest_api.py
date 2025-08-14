@@ -14,34 +14,47 @@ def get_manager(db_dir: str) -> BudgetManagerApi:
 
 @app.get("/list_balances")
 def list_balances(db_dir: str = "."):
-    manager = get_manager(db_dir)
-    return manager.list_balances()
+    try:
+        manager = get_manager(db_dir)
+        return manager.list_balances()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/balances", response_model=Dict[str, BalanceResponse])
 def get_balances(db_dir: str = "."):
     """ Return balances as a dictionary of BalanceResponse """
-    manager = get_manager(db_dir)
-    return {k: BalanceResponse(name=k, amount=v) for k, v in manager.balances.items()}
+    try:
+        manager = get_manager(db_dir)
+        return {k: BalanceResponse(name=k, amount=v) for k, v in manager.balances.items()}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/targets", response_model=Dict[str, TargetResponse])
 def get_targets(db_dir: str = "."):
     """ Return a dictionary of TargetResponse for each target """
-    manager = get_manager(db_dir)
-    targets: dict[str, Target] = manager.get_targets()
-    return {
-        name: target.to_target_response(name=name) 
-        for name, target in targets.items()
-    }
+    try:
+        manager = get_manager(db_dir)
+        targets: dict[str, Target] = manager.get_targets()
+        return {
+            name: target.to_target_response(name=name) 
+            for name, target in targets.items()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/recurring", response_model=Dict[str, PeriodicDepositResponse])
 def get_recurring(db_dir: str = "."):
     """ Return a dictionary of PeriodicDeposit for each recurring deposit """
-    manager = get_manager(db_dir)
-    recurring: dict[str, PeriodicDeposit] = manager.get_recurring()
-    return {
-        name: periodic.to_periodic_deposit_response(name=name) 
-        for name, periodic in recurring.items()
-    }
+    try:
+        manager = get_manager(db_dir)
+        recurring: dict[str, PeriodicDeposit] = manager.get_recurring()
+        return {
+            name: periodic.to_periodic_deposit_response(name=name) 
+            for name, periodic in recurring.items()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 
 @app.post("/deposit")
 def deposit(req: DepositRequest, db_dir: str = "."):
@@ -178,8 +191,11 @@ def create_db(req: CreateDbRequest = Body(...)):
 # Export database as JSON
 @app.get("/export_json")
 def export_json(db_dir: str = "."):
-    manager = get_manager(db_dir)
-    return manager.to_json()
+    try:
+        manager = get_manager(db_dir)
+        return manager.to_json()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 # Import database from JSON
 @app.post("/import_json")
