@@ -24,17 +24,17 @@ class RemoteBudgetManagerClient(BudgetManagerClient):
     
     def list_balances(self):
         response = requests.get(f"{self.api_url}/list_balances", params={"db_dir": self.db_path})
-        response.raise_for_status()
+        self._raise_for_detailed_status(response)
         return response.json()
 
     def get_balances(self):
         response = requests.get(f"{self.api_url}/balances", params={"db_dir": self.db_path})
-        response.raise_for_status()
+        self._raise_for_detailed_status(response)   
         return OrderedDict({balance_name: d["amount"] for balance_name, d in response.json().items()})
     
     def get_targets(self):
         response = requests.get(f"{self.api_url}/targets", params={"db_dir": self.db_path})
-        response.raise_for_status()
+        self._raise_for_detailed_status(response)
         return {
             target_name: Target.from_target_response(TargetResponse(**target_response))
             for target_name, target_response in response.json().items()
@@ -42,7 +42,7 @@ class RemoteBudgetManagerClient(BudgetManagerClient):
     
     def get_recurring(self):
         response = requests.get(f"{self.api_url}/recurring", params={"db_dir": self.db_path})
-        response.raise_for_status()
+        self._raise_for_detailed_status(response)
         return {
             name: PeriodicDeposit.from_periodic_deposit_response(PeriodicDepositResponse(**periodic_response))
             for name, periodic_response in response.json().items()
