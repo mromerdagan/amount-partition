@@ -295,6 +295,26 @@ class TestFromJson(unittest.TestCase):
         self.assertEqual(db._recurring['box2'].amount, 20)
         self.assertEqual(db._recurring['box2'].target, 100)
 
+class TestLinearScaling(unittest.TestCase):
+    
+    def test_scale_exact_total_and_nonnegative(self):
+        s = {"a": 60, "b": 40}
+        out = BudgetManagerApi._scale_suggestion_to_total(s, 75)
+        assert sum(out.values()) == 75
+        assert all(v >= 0 for v in out.values())
+    
+    def test_scale_up_preserves_proportions(self):
+        s = {"x": 1, "y": 1, "z": 1}
+        out = BudgetManagerApi._scale_suggestion_to_total(s, 5)  # from 3 to 5
+        assert sum(out.values()) == 5
+        # expect 2,2,1 in some order
+        assert sorted(out.values(), reverse=True) == [2,2,1] 
+
+    def test_zero_target_total_results_in_all_zeros(self):
+        s = {"a": 2, "b": 3}
+        out = BudgetManagerApi._scale_suggestion_to_total(s, 0)
+        assert out == {"a": 0, "b": 0}
+
 
 if __name__ == '__main__':
     unittest.main()

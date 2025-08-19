@@ -285,6 +285,57 @@ class BudgetManagerApi(object):
 
 
 	#### Suggestion methods
+	@staticmethod
+	def _scale_suggestion_to_total(suggestion: dict[str, int], target_total: int) -> dict[str, int]:
+		"""
+		Scale integer amounts proportionally so that the new integer amounts sum to target_total.
+		Uses the Largest Remainder (Hamilton) method:
+		  1) Compute exact scaled value ai' = ai * s where s = target_total / sum(ai)
+		  2) Take floors fi = floor(ai')
+		  3) Distribute the remaining R = target_total - sum(fi) by +1 to the R items with
+		"""
+		if target_total < 0:
+			raise ValueError("target_total must be >= 0")
+		if not suggestion:
+			return {}
+		if any(v < 0 for v in suggestion.values()):
+			raise ValueError("suggestion contains negative amounts")
+
+		total = sum(suggestion.values())
+		if total == 0:
+			# Nothing to scale; return zeros matching the number of keys if target_total is 0,
+			# or spread +1s deterministically if target_total > 0 (rare edge). Here we return zeros.
+			return {k: 0 for k in suggestion}
+
+		scale = target_total / total
+
+		# First pass: floors and fractional parts
+		floors: dict[str, int] = {}
+		remainders: list[tuple[float, int, str]] = []  # (remainder, -orig_amount, key) for deterministic sorting
+		for key, orig in suggestion.items():
+			exact = orig * scale
+			f = int(exact // 1)  # floor
+			r = exact - f
+			floors[key] = f
+			# tie-breaker: larger original amount first, then lexicographic key
+			remainders.append((r, -orig, key))
+
+		# How many +1's we need to distribute
+		R = target_total - sum(floors.values())
+		if R <= 0:
+			# we're done (can happen if target_total == 0)
+			return floors
+
+		# Sort by remainder desc, then by larger original amount, then by key asc for determinism
+		remainders.sort(key=lambda t: (-t[0], t[1], t[2]))
+
+		result = dict(floors)
+		for i in range(R):
+			_, _, key = remainders[i]
+			result[key] += 1
+
+		return result
+ 
 	def suggest_deposits(self, skip: str = '', is_monthly: bool = True, amount_to_use: int = 0) -> dict[str, int]:
 		"""Suggest deposit amounts for each balance to meet targets and recurring deposits.
 
@@ -299,9 +350,11 @@ class BudgetManagerApi(object):
 			This is important because the monthly deposit per target needs to know how many
 			months are left to reach the target- this number should reflect the number of
 			deposits left. Therefore if the regular deposit has taken place already, then
-			there is one less deposit left so we need to take this into account on the
-		calculations
-		amount_to_use (int): The amount to use for the deposit suggestion. If 0, use do not normalize amounts
+			there is one less deposit left so we need to take this into account on the 
+			calculations
+		amount_to_use (int):
+    		If > 0, linearly scale the suggested amounts so their sum equals `amount_to_use`,
+    		using the Largest Remainder method (sum is exact; proportions preserved as closely as possible).
 
 		Return value: dictionary that maps balance name to amount that needs to be put in balance.
 		This dictionary can be fed into the method "apply_suggestion" if there is
@@ -337,13 +390,11 @@ class BudgetManagerApi(object):
 			else: # Missing part is less than usual amount
 				suggestion[boxname] = self._recurring[boxname].target - self._balances[boxname]
 		
-		# Normalize suggestion amounts if amount_to_use is specified
+		# Linear scaling to a target total using Largest Remainder method
 		if amount_to_use > 0 and suggestion:
 			current_total = sum(suggestion.values())
 			if current_total > 0:
-				scale_factor = amount_to_use / current_total
-				# Scale all suggestions proportionally and round to integers
-				suggestion = {boxname: int(round(amount * scale_factor)) for boxname, amount in suggestion.items()}
+				suggestion = self._scale_suggestion_to_total(suggestion, amount_to_use)
 		
 		return suggestion
 
