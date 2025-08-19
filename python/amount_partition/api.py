@@ -256,26 +256,6 @@ class BudgetManagerApi(object):
 			raise KeyError(f"Key '{boxname}' is missing from targets ('{self.targets_path}')")
 		del(self._targets[boxname])
 	
-	def target_monthly_deposit(self, boxname: str, after_monthly_deposit: bool) -> int:
-		# TODO: Replace this function with Target method
-		"""Calculate the required monthly deposit to reach a target by its due date."""
-		target = self._targets[boxname]
-		goal = target.goal
-		due = target.due
-		curr_amount = self._balances[boxname]
-		diff = due - self.now
-		months_left = math.ceil(diff.days / DAYS_IN_MONTH)
-		if after_monthly_deposit:
-			months_left -= 1
-		if months_left > 0:
-			monthly = (goal - curr_amount) / months_left
-		else: # months_left == 0
-			monthly = goal - curr_amount
-		monthly = int(monthly)
-		if monthly < 0: # Target is already reached
-			monthly = 0
-		return monthly
-	
 	#### Recurring payments related methods
 	def set_recurring(self, boxname: str, periodic_amount: int, target: int = 0) -> None:
 		"""Set a recurring deposit for a balance, with an optional target amount."""
@@ -322,10 +302,11 @@ class BudgetManagerApi(object):
 		"""
 		suggestion = {}
 		skip = skip.split(',')
-		for boxname in self._targets:
+		for boxname, target in self._targets.items():
 			if boxname in skip:
 				continue
-			box_suggestion = self.target_monthly_deposit(boxname, not is_monthly)
+			curr_box_balance = self._balances.get(boxname, 0)
+			box_suggestion = target.monthly_payment(balance=curr_box_balance, curr_month_payed=not is_monthly)
 			if box_suggestion == 0: # Target is already reached
 				continue
 			suggestion[boxname] = box_suggestion
