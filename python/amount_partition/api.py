@@ -299,16 +299,16 @@ class BudgetManagerApi(object):
 
 
 	#### Suggestion methods
-	def suggest_deposits(self, skip: str = '', additional_suggestion: bool = False) -> dict[str, int]:
+	def suggest_deposits(self, skip: str = '', is_monthly: bool = True) -> dict[str, int]:
 		"""Suggest deposit amounts for each balance to meet targets and recurring deposits.
 
 		Params:
 		skip (string):
 			comma separated balance names that you want to avoid from putting into generated
 			suggestion
-		additional_suggestion (bool):
-			'False' if this is the suggestion is meant to be used for the regular monthly
-			deposit (for example, on the salary pay day). If called with 'True' this means
+		is_monthly (bool):
+			'True' if this is the suggestion is meant to be used for the regular monthly
+			deposit (for example, on the salary pay day). If called with 'False' this means
 			that this suggestion is yet another one that comes after the regular deposit.
 			This is important because the monthly deposit per target needs to know how many
 			months are left to reach the target- this number should reflect the number of
@@ -325,7 +325,7 @@ class BudgetManagerApi(object):
 		for boxname in self._targets:
 			if boxname in skip:
 				continue
-			box_suggestion = self.target_monthly_deposit(boxname, additional_suggestion)
+			box_suggestion = self.target_monthly_deposit(boxname, not is_monthly)
 			if box_suggestion == 0: # Target is already reached
 				continue
 			suggestion[boxname] = box_suggestion
