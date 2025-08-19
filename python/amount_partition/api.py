@@ -247,6 +247,9 @@ class BudgetManagerApi(object):
 		"""Set a target amount and due date for a balance."""
 		if not(boxname in self._balances):
 			raise KeyError(f"Key '{boxname}' is missing from database ('{self.db_dir}')")
+		# Make sure target isn't already a recurring deposit
+		if boxname in self._recurring:
+			raise ValueError(f"Target for '{boxname}' cannot be set because it is already a recurring deposit")
 		due = datetime.strptime(due, '%Y-%m')
 		self._targets[boxname] = Target(goal=goal, due=due)
 
@@ -256,31 +259,14 @@ class BudgetManagerApi(object):
 			raise KeyError(f"Key '{boxname}' is missing from targets ('{self.targets_path}')")
 		del(self._targets[boxname])
 	
-	def target_monthly_deposit(self, boxname: str, after_monthly_deposit: bool) -> int:
-		# TODO: Replace this function with Target method
-		"""Calculate the required monthly deposit to reach a target by its due date."""
-		target = self._targets[boxname]
-		goal = target.goal
-		due = target.due
-		curr_amount = self._balances[boxname]
-		diff = due - self.now
-		months_left = math.ceil(diff.days / DAYS_IN_MONTH)
-		if after_monthly_deposit:
-			months_left -= 1
-		if months_left > 0:
-			monthly = (goal - curr_amount) / months_left
-		else: # months_left == 0
-			monthly = goal - curr_amount
-		monthly = int(monthly)
-		if monthly < 0: # Target is already reached
-			monthly = 0
-		return monthly
-	
 	#### Recurring payments related methods
 	def set_recurring(self, boxname: str, periodic_amount: int, target: int = 0) -> None:
 		"""Set a recurring deposit for a balance, with an optional target amount."""
 		if not(boxname in self._balances):
 			raise KeyError(f"Key '{boxname}' is missing from database ('{self.db_dir}')")
+		# Make sure recurring isn't already a target
+		if boxname in self._targets:
+			raise ValueError(f"Recurring deposit for '{boxname}' cannot be set because it is already a target")
 		self._recurring[boxname] = PeriodicDeposit(periodic_amount, target)
 
 	def remove_recurring(self, boxname: str) -> None:
@@ -299,22 +285,23 @@ class BudgetManagerApi(object):
 
 
 	#### Suggestion methods
-	def suggest_deposits(self, skip: str = '', additional_suggestion: bool = False) -> dict[str, int]:
+	def suggest_deposits(self, skip: str = '', is_monthly: bool = True, amount_to_use: int = 0) -> dict[str, int]:
 		"""Suggest deposit amounts for each balance to meet targets and recurring deposits.
 
 		Params:
 		skip (string):
 			comma separated balance names that you want to avoid from putting into generated
 			suggestion
-		additional_suggestion (bool):
-			'False' if this is the suggestion is meant to be used for the regular monthly
-			deposit (for example, on the salary pay day). If called with 'True' this means
+		is_monthly (bool):
+			'True' if this is the suggestion is meant to be used for the regular monthly
+			deposit (for example, on the salary pay day). If called with 'False' this means
 			that this suggestion is yet another one that comes after the regular deposit.
 			This is important because the monthly deposit per target needs to know how many
 			months are left to reach the target- this number should reflect the number of
 			deposits left. Therefore if the regular deposit has taken place already, then
 			there is one less deposit left so we need to take this into account on the
 		calculations
+		amount_to_use (int): The amount to use for the deposit suggestion. If 0, use do not normalize amounts
 
 		Return value: dictionary that maps balance name to amount that needs to be put in balance.
 		This dictionary can be fed into the method "apply_suggestion" if there is
@@ -322,10 +309,11 @@ class BudgetManagerApi(object):
 		"""
 		suggestion = {}
 		skip = skip.split(',')
-		for boxname in self._targets:
+		for boxname, target in self._targets.items():
 			if boxname in skip:
 				continue
-			box_suggestion = self.target_monthly_deposit(boxname, additional_suggestion)
+			curr_box_balance = self._balances.get(boxname, 0)
+			box_suggestion = target.monthly_payment(balance=curr_box_balance, curr_month_payed=not is_monthly)
 			if box_suggestion == 0: # Target is already reached
 				continue
 			suggestion[boxname] = box_suggestion
@@ -348,6 +336,15 @@ class BudgetManagerApi(object):
 				suggestion[boxname] = self._recurring[boxname].amount
 			else: # Missing part is less than usual amount
 				suggestion[boxname] = self._recurring[boxname].target - self._balances[boxname]
+		
+		# Normalize suggestion amounts if amount_to_use is specified
+		if amount_to_use > 0 and suggestion:
+			current_total = sum(suggestion.values())
+			if current_total > 0:
+				scale_factor = amount_to_use / current_total
+				# Scale all suggestions proportionally and round to integers
+				suggestion = {boxname: int(round(amount * scale_factor)) for boxname, amount in suggestion.items()}
+		
 		return suggestion
 
 	def apply_suggestion(self, suggestion: dict[str, int]) -> None:

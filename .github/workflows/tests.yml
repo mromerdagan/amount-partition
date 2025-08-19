@@ -46,9 +46,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install pytest pytest-cov
+          pip install pytest pytest-cov typer
 
-      - name: Run tests
+      - name: Run tests (pytest)
         working-directory: python
         env:
           PYTHONPATH: ${{ github.workspace }}/python
@@ -61,3 +61,13 @@ jobs:
         with:
           name: coverage-${{ matrix.python-version }}
           path: python/coverage.xml
+
+      - name: CLI E2E (bash)
+        working-directory: python
+        env:
+          PYTHONPATH: ${{ github.workspace }}/python
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y jq
+          chmod +x tests/cli_e2e.sh
+          tests/cli_e2e.sh

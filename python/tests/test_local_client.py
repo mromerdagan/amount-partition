@@ -18,11 +18,15 @@ class TestLocalBudgetManagerClient(unittest.TestCase):
         # Create new DB and add data
         client1 = LocalBudgetManagerClient(self.db_path1)
         client1.create_db(self.db_path1)
-        client1.new_box("vacation")
+        
+        # Create separate boxes for target and recurring to avoid conflict
+        client1.new_box("vacation_target")
+        client1.new_box("vacation_recurring")
         client1.deposit(1000)
-        client1.add_to_balance("vacation", 500)
-        client1.set_target("vacation", 1500, "2026-02")
-        client1.set_recurring("vacation", 100, 1500)
+        client1.add_to_balance("vacation_target", 300)
+        client1.add_to_balance("vacation_recurring", 200)
+        client1.set_target("vacation_target", 1500, "2026-02")
+        client1.set_recurring("vacation_recurring", 100, 1500)
 
         # Export to JSON
         data = client1.export_json()
