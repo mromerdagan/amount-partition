@@ -247,6 +247,9 @@ class BudgetManagerApi(object):
 		"""Set a target amount and due date for a balance."""
 		if not(boxname in self._balances):
 			raise KeyError(f"Key '{boxname}' is missing from database ('{self.db_dir}')")
+		# Make sure target isn't already a recurring deposit
+		if boxname in self._recurring:
+			raise ValueError(f"Target for '{boxname}' cannot be set because it is already a recurring deposit")
 		due = datetime.strptime(due, '%Y-%m')
 		self._targets[boxname] = Target(goal=goal, due=due)
 
@@ -261,6 +264,9 @@ class BudgetManagerApi(object):
 		"""Set a recurring deposit for a balance, with an optional target amount."""
 		if not(boxname in self._balances):
 			raise KeyError(f"Key '{boxname}' is missing from database ('{self.db_dir}')")
+		# Make sure recurring isn't already a target
+		if boxname in self._targets:
+			raise ValueError(f"Recurring deposit for '{boxname}' cannot be set because it is already a target")
 		self._recurring[boxname] = PeriodicDeposit(periodic_amount, target)
 
 	def remove_recurring(self, boxname: str) -> None:

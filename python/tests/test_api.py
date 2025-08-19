@@ -248,10 +248,13 @@ class TestToJson(unittest.TestCase):
         BudgetManagerApi.create_db(self.tempdir)
         self.db = BudgetManagerApi.from_storage(self.tempdir)
         self.db.deposit(500)
-        self.db.new_box('box1')
-        self.db.add_to_balance('box1', 200)
-        self.db.set_target('box1', 300, '2030-01')
-        self.db.set_recurring('box1', 50, 400)
+        # Create separate boxes for target and recurring to avoid conflict
+        self.db.new_box('target_box')
+        self.db.add_to_balance('target_box', 200)
+        self.db.set_target('target_box', 300, '2030-01')
+        self.db.new_box('recurring_box')
+        self.db.add_to_balance('recurring_box', 100)
+        self.db.set_recurring('recurring_box', 50, 400)
 
     def tearDown(self):
         shutil.rmtree(self.tempdir)
@@ -261,11 +264,12 @@ class TestToJson(unittest.TestCase):
         self.assertIn('partition', data)
         self.assertIn('goals', data)
         self.assertIn('periodic', data)
-        self.assertEqual(data['partition']['box1'], 200)
-        self.assertEqual(data['goals']['box1']['goal'], 300)
-        self.assertEqual(data['goals']['box1']['due'], '2030-01')
-        self.assertEqual(data['periodic']['box1']['amount'], 50)
-        self.assertEqual(data['periodic']['box1']['target'], 400)
+        self.assertEqual(data['partition']['target_box'], 200)
+        self.assertEqual(data['partition']['recurring_box'], 100)
+        self.assertEqual(data['goals']['target_box']['goal'], 300)
+        self.assertEqual(data['goals']['target_box']['due'], '2030-01')
+        self.assertEqual(data['periodic']['recurring_box']['amount'], 50)
+        self.assertEqual(data['periodic']['recurring_box']['target'], 400)
 
 
 class TestFromJson(unittest.TestCase):

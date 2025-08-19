@@ -51,7 +51,7 @@ def deposit(
     """Deposit an amount into the 'free' balance. Optionally merge 'credit-spent'."""
     manager = BudgetManagerApi.from_storage(db_dir)
     manager.deposit(amount, merge_with_credit=merge_with_credit)
-    manager.dump_data()
+    manager.dump_data(db_dir)
     typer.echo(f"Deposited {amount} into 'free'. New 'free' balance: {manager.balances['free']}")
     if merge_with_credit:
         typer.echo(f"'credit-spent' merged into 'free'.")
@@ -65,7 +65,7 @@ def withdraw(
     """Withdraw an amount from 'free'. If amount is 0, empty 'free'."""
     manager = BudgetManagerApi.from_storage(db_dir)
     manager.withdraw(amount)
-    manager.dump_data()
+    manager.dump_data(db_dir)
     typer.echo(f"Withdrew {amount} from 'free'. New 'free' balance: {manager.balances['free']}")
 
 
@@ -79,7 +79,7 @@ def spend(
     """Spend an amount from a balance. Optionally add to 'credit-spent'."""
     manager = BudgetManagerApi.from_storage(db_dir)
     manager.spend(boxname, amount, use_credit)
-    manager.dump_data()
+    manager.dump_data(db_dir)
     typer.echo(f"Spent {amount} from '{boxname}'. New balance: {manager.balances.get(boxname, 0)}")
     if use_credit:
         typer.echo(f"Added {amount} to 'credit-spent'.")
@@ -94,7 +94,7 @@ def add_to_balance(
     """Increase a balance by amount, decreasing 'free' by the same amount."""
     manager = BudgetManagerApi.from_storage(db_dir)
     manager.add_to_balance(boxname, amount)
-    manager.dump_data()
+    manager.dump_data(db_dir)
     typer.echo(f"Added {amount} to '{boxname}'. New balance: {manager.balances[boxname]}")
 
 
@@ -108,7 +108,7 @@ def transfer_between_balances(
     """Transfer amount from one balance to another."""
     manager = BudgetManagerApi.from_storage(db_dir)
     manager.transfer_between_balances(from_box, to_box, amount)
-    manager.dump_data()
+    manager.dump_data(db_dir)
     typer.echo(f"Transferred {amount} from '{from_box}' to '{to_box}'.")
 
 
@@ -120,7 +120,7 @@ def new_box(
     """Create a new balance with the given name and zero value."""
     manager = BudgetManagerApi.from_storage(db_dir)
     manager.new_box(boxname)
-    manager.dump_data()
+    manager.dump_data(db_dir)
     typer.echo(f"Created new balance '{boxname}'.")
 
 
@@ -132,7 +132,7 @@ def remove_box(
     """Remove a balance and transfer its amount to 'free'. Also remove related targets and recurring entries."""
     manager = BudgetManagerApi.from_storage(db_dir)
     manager.remove_box(boxname)
-    manager.dump_data()
+    manager.dump_data(db_dir)
     typer.echo(f"Removed balance '{boxname}'.")
 
 
@@ -145,7 +145,7 @@ def new_loan(
     """Create a self-loan balance with a negative amount and a target to repay by due date."""
     manager = BudgetManagerApi.from_storage(db_dir)
     manager.new_loan(amount, due)
-    manager.dump_data()
+    manager.dump_data(db_dir)
     typer.echo(f"Created self-loan of {amount} due {due}.")
 
 
@@ -159,8 +159,106 @@ def set_target(
     """Set a target amount and due date for a balance."""
     manager = BudgetManagerApi.from_storage(db_dir)
     manager.set_target(boxname, goal, due)
-    manager.dump_data()
+    manager.dump_data(db_dir)
     typer.echo(f"Set target for '{boxname}': {goal} by {due}.")
+
+
+@app.command()
+def remove_target(
+    boxname: str = typer.Argument(..., help="Balance to remove target from"),
+    db_dir: str = typer.Option('.', '--db-dir', help="Path to the database directory")
+):
+    """Remove a target for the given balance."""
+    manager = BudgetManagerApi.from_storage(db_dir)
+    manager.remove_target(boxname)
+    manager.dump_data(db_dir)
+    typer.echo(f"Removed target for '{boxname}'.")
+
+
+@app.command()
+def set_recurring(
+    boxname: str = typer.Argument(..., help="Balance to set recurring deposit for"),
+    periodic_amount: int = typer.Argument(..., help="Amount for periodic deposit"),
+    target: int = typer.Argument(0, help="Target amount (0 for unlimited)"),
+    db_dir: str = typer.Option('.', '--db-dir', help="Path to the database directory")
+):
+    """Set a recurring deposit for a balance, with an optional target amount."""
+    manager = BudgetManagerApi.from_storage(db_dir)
+    manager.set_recurring(boxname, periodic_amount, target)
+    manager.dump_data(db_dir)
+    typer.echo(f"Set recurring deposit for '{boxname}': {periodic_amount} (target: {target}).")
+
+
+@app.command()
+def remove_recurring(
+    boxname: str = typer.Argument(..., help="Balance to remove recurring deposit from"),
+    db_dir: str = typer.Option('.', '--db-dir', help="Path to the database directory")
+):
+    """Remove a recurring deposit for the given balance."""
+    manager = BudgetManagerApi.from_storage(db_dir)
+    manager.remove_recurring(boxname)
+    manager.dump_data(db_dir)
+    typer.echo(f"Removed recurring deposit for '{boxname}'.")
+
+
+@app.command()
+def suggest_deposits(
+    skip: str = typer.Option('', '--skip', help="Comma-separated balance names to skip"),
+    is_monthly: bool = typer.Option(True, '--is-monthly/--not-monthly', help="True for regular monthly deposit, False for additional suggestion"),
+    amount_to_use: int = typer.Option(0, '--amount', help="Amount to normalize suggestions to (0 for no normalization)"),
+    db_dir: str = typer.Option('.', '--db-dir', help="Path to the database directory")
+):
+    """Suggest deposit amounts for each balance to meet targets and recurring deposits."""
+    manager = BudgetManagerApi.from_storage(db_dir)
+    suggestions = manager.suggest_deposits(skip=skip, is_monthly=is_monthly, amount_to_use=amount_to_use)
+    
+    if not suggestions:
+        typer.echo("No deposit suggestions available.")
+        return
+    
+    typer.echo("Deposit suggestions:")
+    typer.echo("===================")
+    total = 0
+    for boxname, amount in suggestions.items():
+        typer.echo(f"{boxname:<20} {amount}")
+        total += amount
+    typer.echo(f"\nTotal suggested: {total}")
+
+
+@app.command()
+def apply_suggestion(
+    skip: str = typer.Option('', '--skip', help="Comma-separated balance names to skip"),
+    is_monthly: bool = typer.Option(True, '--is-monthly/--not-monthly', help="True for regular monthly deposit, False for additional suggestion"),
+    amount_to_use: int = typer.Option(0, '--amount', help="Amount to normalize suggestions to (0 for no normalization)"),
+    db_dir: str = typer.Option('.', '--db-dir', help="Path to the database directory")
+):
+    """Generate and apply deposit suggestions to the balances."""
+    manager = BudgetManagerApi.from_storage(db_dir)
+    suggestions = manager.suggest_deposits(skip=skip, is_monthly=is_monthly, amount_to_use=amount_to_use)
+    
+    if not suggestions:
+        typer.echo("No deposit suggestions to apply.")
+        return
+    
+    manager.apply_suggestion(suggestions)
+    manager.dump_data(db_dir)
+    
+    total_applied = sum(suggestions.values())
+    typer.echo(f"Applied deposit suggestions. Total: {total_applied}")
+    typer.echo("Applied amounts:")
+    for boxname, amount in suggestions.items():
+        typer.echo(f"  {boxname}: +{amount}")
+
+
+@app.command()
+def reserved_amount(
+    days_to_lock: int = typer.Argument(..., help="Number of days to consider for locking funds"),
+    db_dir: str = typer.Option('.', '--db-dir', help="Path to the database directory")
+):
+    """Calculate reserved funds for future targets with due dates at least X days in the future."""
+    manager = BudgetManagerApi.from_storage(db_dir)
+    reserved = manager.reserved_amount(days_to_lock)
+    typer.echo(f"Reserved amount (targets due in {days_to_lock}+ days): {reserved}")
 
 
 @app.command()
@@ -194,13 +292,12 @@ def to_json(
 
 @app.command()
 def from_json(
-    db_dir: str = typer.Argument(..., help="Path to the database directory to import into"),
-    input_file: str = typer.Argument(..., help="Input JSON file")
+    input_file: str = typer.Argument(..., help="Input JSON file"),
+    db_dir: str = typer.Option('.', '--db-dir', help="Path to the database directory to import into")
 ):
     """Import database from a JSON file, overwriting any existing data."""
-    with open(input_file, 'r') as f:
-        data = json.load(f)
-    BudgetManagerApi.from_json(db_dir, data)
+    manager = BudgetManagerApi.from_json(input_file)
+    manager.dump_data(db_dir)
     typer.echo(f"Imported database from {input_file} into {db_dir}.")
 
 if __name__ == "__main__":
