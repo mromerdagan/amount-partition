@@ -279,7 +279,7 @@ class BudgetManagerApi(object):
 
 
 	#### Suggestion methods
-	def suggest_deposits(self, skip: str = '', is_monthly: bool = True) -> dict[str, int]:
+	def suggest_deposits(self, skip: str = '', is_monthly: bool = True, amount_to_use: int = 0) -> dict[str, int]:
 		"""Suggest deposit amounts for each balance to meet targets and recurring deposits.
 
 		Params:
@@ -295,6 +295,7 @@ class BudgetManagerApi(object):
 			deposits left. Therefore if the regular deposit has taken place already, then
 			there is one less deposit left so we need to take this into account on the
 		calculations
+		amount_to_use (int): The amount to use for the deposit suggestion. If 0, use do not normalize amounts
 
 		Return value: dictionary that maps balance name to amount that needs to be put in balance.
 		This dictionary can be fed into the method "apply_suggestion" if there is
@@ -329,6 +330,15 @@ class BudgetManagerApi(object):
 				suggestion[boxname] = self._recurring[boxname].amount
 			else: # Missing part is less than usual amount
 				suggestion[boxname] = self._recurring[boxname].target - self._balances[boxname]
+		
+		# Normalize suggestion amounts if amount_to_use is specified
+		if amount_to_use > 0 and suggestion:
+			current_total = sum(suggestion.values())
+			if current_total > 0:
+				scale_factor = amount_to_use / current_total
+				# Scale all suggestions proportionally and round to integers
+				suggestion = {boxname: int(round(amount * scale_factor)) for boxname, amount in suggestion.items()}
+		
 		return suggestion
 
 	def apply_suggestion(self, suggestion: dict[str, int]) -> None:
