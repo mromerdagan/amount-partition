@@ -400,6 +400,104 @@ class BudgetShell(cmd.Cmd):
             console.print("[red]Import not supported by this client.[/red]")
             return
         console.print(f"Imported database from {src_file}. Result: {result}")
+    
+    def do_plan_deposits(self, arg):
+        "Plan deposit suggestions. Usage: plan_deposits [--skip <boxes>] [--not-monthly] [--amount-to-use <amount>]"
+        parts = arg.strip().split()
+        
+        # Default values
+        skip = ""
+        is_monthly = True
+        amount_to_use = 0
+        
+        # Parse arguments
+        i = 0
+        while i < len(parts):
+            if parts[i] == "--skip" and i + 1 < len(parts):
+                skip = parts[i + 1]
+                i += 2
+            elif parts[i] == "--not-monthly":
+                is_monthly = False
+                i += 1
+            elif parts[i] == "--amount-to-use" and i + 1 < len(parts):
+                try:
+                    amount_to_use = int(parts[i + 1])
+                except ValueError:
+                    console.print("[red]Amount must be an integer.[/red]")
+                    return
+                i += 2
+            else:
+                console.print("[red]Usage: plan_deposits [--skip <boxes>] [--not-monthly] [--amount-to-use <amount>][/red]")
+                console.print("[yellow]  --skip: comma-separated list of boxes to skip[/yellow]")
+                console.print("[yellow]  --not-monthly: treat as additional deposit (not regular monthly)[/yellow]")
+                console.print("[yellow]  --amount-to-use: scale suggestions to this total amount[/yellow]")
+                return
+        
+        try:
+            plan = self.client.plan_deposits(skip=skip, is_monthly=is_monthly, amount_to_use=amount_to_use)
+        except Exception as e:
+            console.print(f"[red]Error planning deposits: {e}[/red]")
+            return
+        
+        if not plan:
+            console.print("[yellow]No deposit suggestions generated.[/yellow]")
+            return
+        
+        # Display suggestions in a table
+        table = Table(title="Deposit Suggestions")
+        table.add_column("Box", style="cyan")
+        table.add_column("Suggested Amount", style="magenta", justify="right")
+        
+        total_suggested = 0
+        for box, amount in plan.items():
+            print(box, amount)
+            amount = int(amount)
+            table.add_row(box, str(amount))
+            total_suggested += amount
+        
+        console.print(table)
+        console.print(f"\n[bold]Total suggested: {total_suggested}[/bold]")
+        
+        if amount_to_use > 0:
+            console.print(f"[blue]Scaled to target amount: {amount_to_use}[/blue]")
+    
+    def do_plan_and_apply_deposits(self, arg):
+        "Plan and apply deposit suggestions. Usage: plan_and_apply_deposits [--skip <boxes>] [--not-monthly] [--amount-to-use <amount>]"
+        parts = arg.strip().split()
+        
+        # Default values
+        skip = ""
+        is_monthly = True
+        amount_to_use = 0
+        
+        # Parse arguments (same logic as plan_deposits)
+        i = 0
+        while i < len(parts):
+            if parts[i] == "--skip" and i + 1 < len(parts):
+                skip = parts[i + 1]
+                i += 2
+            elif parts[i] == "--not-monthly":
+                is_monthly = False
+                i += 1
+            elif parts[i] == "--amount-to-use" and i + 1 < len(parts):
+                try:
+                    amount_to_use = int(parts[i + 1])
+                except ValueError:
+                    console.print("[red]Amount must be an integer.[/red]")
+                    return
+                i += 2
+            else:
+                console.print("[red]Usage: plan_and_apply_deposits [--skip <boxes>] [--not-monthly] [--amount-to-use <amount>][/red]")
+                console.print("[yellow]  --skip: comma-separated list of boxes to skip[/yellow]")
+                console.print("[yellow]  --not-monthly: treat as additional deposit (not regular monthly)[/yellow]")
+                console.print("[yellow]  --amount-to-use: scale suggestions to this total amount[/yellow]")
+                return
+        
+        try:
+            result = self.client.plan_and_apply(skip=skip, is_monthly=is_monthly, amount_to_use=amount_to_use)
+        except Exception as e:
+            console.print(f"[red]Error applying deposit suggestions: {e}[/red]")
+            return
 
 
 
@@ -438,8 +536,9 @@ def main():
     console.print()  # Add a blank line for better spacing
     
     shell.cmdloop()
-
-
+    
+    
+        
 
 if __name__ == "__main__":
     main()

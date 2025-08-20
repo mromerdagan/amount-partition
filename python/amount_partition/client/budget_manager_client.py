@@ -98,3 +98,13 @@ class BudgetManagerClient(ABC):
     def import_json(self, data: dict):
         """Import data from a JSON object."""
         pass
+    
+    @abstractmethod
+    def plan_deposits(self, skip: str, is_monthly: bool, amount_to_use: int):
+        """Plan deposits for the given amount."""
+        pass
+    
+    @abstractmethod
+    def plan_and_apply(self, skip: str, is_monthly: bool, amount_to_use: int):
+        """Plan and apply deposits for the given amount."""
+        pass

@@ -4,7 +4,7 @@ from typing import List, Dict
 from amount_partition.api import BudgetManagerApi
 from amount_partition.models import Target, PeriodicDeposit
 from amount_partition.schemas import (
-    BalanceResponse, TargetResponse, PeriodicDepositResponse, DepositRequest, SetTargetRequest, RemoveTargetRequest, SetRecurringRequest, RemoveRecurringRequest, WithdrawRequest, SpendRequest, AddToBalanceRequest, TransferRequest, NewBoxRequest, RemoveBoxRequest, NewLoanRequest, CreateDbRequest
+    BalanceResponse, PlanAndApplyRequest, PlanDepositsRequest, TargetResponse, PeriodicDepositResponse, DepositRequest, SetTargetRequest, RemoveTargetRequest, SetRecurringRequest, RemoveRecurringRequest, WithdrawRequest, SpendRequest, AddToBalanceRequest, TransferRequest, NewBoxRequest, RemoveBoxRequest, NewLoanRequest, CreateDbRequest
 )
 
 app = FastAPI()
@@ -206,3 +206,56 @@ async def import_json(db_dir: str = ".", data: dict = Body(...)):
         return {"status": "imported", "db_dir": db_dir}
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to import JSON: {e}")
+
+@app.post("/plan_deposits")
+def plan_deposits(req: PlanDepositsRequest = Body(...), db_dir: str = "."):
+    """
+    Compute a deposits plan and return it (no state changes).
+    Response shape:
+    {
+      "status": "ok",
+      "plan": { "<box>": <amount>, ... },
+      "total": <sum of amounts>
+    }
+    """
+    try:
+        manager = get_manager(db_dir)
+        plan = manager.plan_deposits(
+            skip=req.skip,
+            is_monthly=req.is_monthly,
+            amount_to_use=req.amount_to_use,
+        )
+        return {"status": "ok", "plan": plan, "total": sum(plan.values())}
+    except Exception as e:
+        # Keep consistent with your other endpoints that treat manager errors as 400
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/plan_and_apply")
+def plan_and_apply(req: PlanAndApplyRequest = Body(...), db_dir: str = "."):
+    """
+    Compute a deposits plan, apply it to balances, persist, and return the applied plan.
+    Response shape:
+    {
+      "status": "applied",
+      "plan": { "<box>": <amount>, ... },
+      "total": <sum of amounts>
+    }
+    """
+    try:
+        manager = get_manager(db_dir)
+        plan = manager.plan_and_apply(
+            is_monthly=req.is_monthly,
+            skip=req.skip,
+            amount_to_use=req.amount_to_use,
+        )
+        manager.dump_data(db_dir)
+        return {"status": "applied", "plan": plan, "total": sum(plan.values())}
+    except ValueError as e:
+        # e.g., insufficient 'free' funds, stale state, etc.
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to plan/apply deposits: {e}")
+
+
+
