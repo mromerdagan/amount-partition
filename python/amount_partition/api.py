@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from datetime import datetime, timedelta
 from collections import OrderedDict
+from typing import Dict
 from amount_partition.parsing import dump_balances_file, dump_targets_file, dump_recurring_file ,parse_balances_file, parse_targets_file, parse_recurring_file
 from amount_partition.models import Target, PeriodicDeposit
 
@@ -285,29 +286,82 @@ class BudgetManagerApi(object):
 
 
 	#### Suggestion methods
-	def suggest_deposits(self, skip: str = '', is_monthly: bool = True, amount_to_use: int = 0) -> dict[str, int]:
+	@staticmethod
+	def _scale_deposit_plan(plan: dict[str, int], target_amount: int) -> dict[str, int]:
+		"""
+		Scale integer amounts proportionally so that the new integer amounts sum to target_amount.
+		Uses the Largest Remainder (Hamilton) method:
+		  1) Compute exact scaled value ai' = ai * s where s = target_amount / sum(ai)
+		  2) Take floors fi = floor(ai')
+		  3) Distribute the remaining R = target_amount - sum(fi) by +1 to the R items with
+		"""
+		if target_amount < 0:
+			raise ValueError("target_amount must be >= 0")
+		if not plan:
+			return {}
+		if any(v < 0 for v in plan.values()):
+			raise ValueError("Deposit plan contains negative amounts")
+
+		total = sum(plan.values())
+		if total == 0:
+			# Nothing to scale; return zeros matching the number of keys if target_amount is 0,
+			# or spread +1s deterministically if target_amount > 0 (rare edge). Here we return zeros.
+			return {k: 0 for k in plan}
+
+		scale = target_amount / total
+
+		# First pass: floors and fractional parts
+		floors: dict[str, int] = {}
+		remainders: list[tuple[float, int, str]] = []  # (remainder, -orig_amount, key) for deterministic sorting
+		for key, orig in plan.items():
+			exact = orig * scale
+			f = int(exact // 1)  # floor
+			r = exact - f
+			floors[key] = f
+			# tie-breaker: larger original amount first, then lexicographic key
+			remainders.append((r, -orig, key))
+
+		# How many +1's we need to distribute
+		R = target_amount - sum(floors.values())
+		if R <= 0:
+			# we're done (can happen if target_amount == 0)
+			return floors
+
+		# Sort by remainder desc, then by larger original amount, then by key asc for determinism
+		remainders.sort(key=lambda t: (-t[0], t[1], t[2]))
+
+		result = dict(floors)
+		for i in range(R):
+			_, _, key = remainders[i]
+			result[key] += 1
+
+		return result
+ 
+	def plan_deposits(self, skip: str = '', is_monthly: bool = True, amount_to_use: int = 0) -> dict[str, int]:
 		"""Suggest deposit amounts for each balance to meet targets and recurring deposits.
 
 		Params:
 		skip (string):
 			comma separated balance names that you want to avoid from putting into generated
-			suggestion
+			deposit_plan
 		is_monthly (bool):
-			'True' if this is the suggestion is meant to be used for the regular monthly
+			'True' if this is the deposit_plan is meant to be used for the regular monthly
 			deposit (for example, on the salary pay day). If called with 'False' this means
-			that this suggestion is yet another one that comes after the regular deposit.
+			that this deposit_plan is yet another one that comes after the regular deposit.
 			This is important because the monthly deposit per target needs to know how many
 			months are left to reach the target- this number should reflect the number of
 			deposits left. Therefore if the regular deposit has taken place already, then
-			there is one less deposit left so we need to take this into account on the
-		calculations
-		amount_to_use (int): The amount to use for the deposit suggestion. If 0, use do not normalize amounts
+			there is one less deposit left so we need to take this into account on the 
+			calculations
+		amount_to_use (int):
+    		If > 0, linearly scale the suggested amounts so their sum equals `amount_to_use`,
+    		using the Largest Remainder method (sum is exact; proportions preserved as closely as possible).
 
 		Return value: dictionary that maps balance name to amount that needs to be put in balance.
-		This dictionary can be fed into the method "apply_suggestion" if there is
+		This dictionary can be fed into the method "apply_deposit_plan" if there is
 		sufficient amount available in "free" and "credit-spent"
 		"""
-		suggestion = {}
+		deposit_plan = {}
 		skip = skip.split(',')
 		for boxname, target in self._targets.items():
 			if boxname in skip:
@@ -316,10 +370,10 @@ class BudgetManagerApi(object):
 			box_suggestion = target.monthly_payment(balance=curr_box_balance, curr_month_payed=not is_monthly)
 			if box_suggestion == 0: # Target is already reached
 				continue
-			suggestion[boxname] = box_suggestion
+			deposit_plan[boxname] = box_suggestion
 
 		for boxname in self._recurring:
-			if boxname in suggestion:
+			if boxname in deposit_plan:
 				raise KeyError(f"Key '{boxname}' appears in 'recurring' as well as in 'targets'")
 			if boxname in skip:
 				continue
@@ -331,33 +385,36 @@ class BudgetManagerApi(object):
 
 			# Calculate how much should be added in this deposit
 			if self._recurring[boxname].target == 0:
-				suggestion[boxname] = self._recurring[boxname].amount
+				deposit_plan[boxname] = self._recurring[boxname].amount
 			elif (self._balances[boxname] + self._recurring[boxname].amount) < self._recurring[boxname].target:
-				suggestion[boxname] = self._recurring[boxname].amount
+				deposit_plan[boxname] = self._recurring[boxname].amount
 			else: # Missing part is less than usual amount
-				suggestion[boxname] = self._recurring[boxname].target - self._balances[boxname]
+				deposit_plan[boxname] = self._recurring[boxname].target - self._balances[boxname]
 		
-		# Normalize suggestion amounts if amount_to_use is specified
-		if amount_to_use > 0 and suggestion:
-			current_total = sum(suggestion.values())
+		# Linear scaling to a target total using Largest Remainder method
+		if amount_to_use > 0 and deposit_plan:
+			current_total = sum(deposit_plan.values())
 			if current_total > 0:
-				scale_factor = amount_to_use / current_total
-				# Scale all suggestions proportionally and round to integers
-				suggestion = {boxname: int(round(amount * scale_factor)) for boxname, amount in suggestion.items()}
+				deposit_plan = self._scale_deposit_plan(deposit_plan, amount_to_use)
 		
-		return suggestion
+		return deposit_plan
 
-	def apply_suggestion(self, suggestion: dict[str, int]) -> None:
-		"""Apply a deposit suggestion to the balances, updating their values."""
-		suggestion_sum = sum([suggestion[boxname] for boxname in suggestion])
-		if suggestion_sum > self._balances['free']:
-			missing = suggestion_sum - self._balances['free']
-			raise ValueError(f"Cannot apply suggestion- missing {missing} in 'free'")
-		for boxname in suggestion:
+	def _apply_deposit_plan(self, deposit_plan: dict[str, int]) -> None:
+		"""Apply a deposit plan to the balances, updating their values."""
+		plan_sum = sum([deposit_plan[boxname] for boxname in deposit_plan])
+		if plan_sum > self._balances['free']:
+			missing = plan_sum - self._balances['free']
+			raise ValueError(f"Cannot apply deposit plan- missing {missing} in 'free'")
+		for boxname in deposit_plan:
 			if boxname not in self._balances:
 				raise KeyError(f"Key '{boxname}' is missing from database")
-			self.add_to_balance(boxname, suggestion[boxname])
-	
+			self.add_to_balance(boxname, deposit_plan[boxname])
+
+	def plan_and_apply(self, amount_to_use: int, is_monthly: bool, skip: str) -> Dict[str, int]:
+		deposit_plan = self.plan_deposits(skip=skip, is_monthly=is_monthly, amount_to_use=amount_to_use)
+		self._apply_deposit_plan(deposit_plan)
+		return deposit_plan
+
 	# Reserved funds for future targets
 	def reserved_amount(self, days_to_lock: int) -> int:
 		"""

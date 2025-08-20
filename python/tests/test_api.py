@@ -225,21 +225,21 @@ class TestSuggestDepositsApplySuggestion(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.tempdir)
 
-    def test_suggest_deposits(self):
-        suggestion = self.db.suggest_deposits()
-        self.assertIn('box1', suggestion)
-        self.assertIn('box2', suggestion)
-        self.assertTrue(suggestion['box1'] > 0)
-        self.assertTrue(suggestion['box2'] > 0)
+    def test_plan_deposits(self):
+        deposits_plan = self.db.plan_deposits()
+        self.assertIn('box1', deposits_plan)
+        self.assertIn('box2', deposits_plan)
+        self.assertTrue(deposits_plan['box1'] > 0)
+        self.assertTrue(deposits_plan['box2'] > 0)
 
-    def test_apply_suggestion(self):
-        suggestion = self.db.suggest_deposits()
-        self.db.apply_suggestion(suggestion)
+    def test_apply_deposit_plan(self):
+        deposits_plan = self.db.plan_deposits()
+        self.db._apply_deposit_plan(deposits_plan)
         # After applying, balances should increase by suggested amount
-        self.assertEqual(self.db._balances['box1'], suggestion['box1'])
-        self.assertEqual(self.db._balances['box2'], suggestion['box2'])
+        self.assertEqual(self.db._balances['box1'], deposits_plan['box1'])
+        self.assertEqual(self.db._balances['box2'], deposits_plan['box2'])
         # 'free' should decrease by the sum
-        self.assertEqual(self.db._balances['free'], 1000 - suggestion['box1'] - suggestion['box2'])
+        self.assertEqual(self.db._balances['free'], 1000 - deposits_plan['box1'] - deposits_plan['box2'])
 
 
 class TestToJson(unittest.TestCase):
@@ -294,6 +294,31 @@ class TestFromJson(unittest.TestCase):
         self.assertIn('box2', db._recurring)
         self.assertEqual(db._recurring['box2'].amount, 20)
         self.assertEqual(db._recurring['box2'].target, 100)
+
+class TestLinearScaling(unittest.TestCase):
+    
+    def test_scale_exact_total_and_nonnegative(self):
+        s = {"a": 60, "b": 40}
+        out = BudgetManagerApi._scale_deposit_plan(s, 75)
+        assert sum(out.values()) == 75
+        assert all(v >= 0 for v in out.values())
+    
+    def test_scale_up_preserves_proportions(self):
+        s = {"x": 1, "y": 1, "z": 1}
+        out = BudgetManagerApi._scale_deposit_plan(s, 5)  # from 3 to 5
+        assert sum(out.values()) == 5
+        # expect 2,2,1 in some order
+        assert sorted(out.values(), reverse=True) == [2,2,1] 
+
+    def test_zero_target_amount_results_in_all_zeros(self):
+        s = {"a": 2, "b": 3}
+        out = BudgetManagerApi._scale_deposit_plan(s, 0)
+        assert out == {"a": 0, "b": 0}
+
+    def test_zero_target_amount_results_in_all_zeros(self):
+        s = {"a": 2, "b": 3}
+        out = BudgetManagerApi._scale_deposit_plan(s, 0)
+        assert out == {"a": 0, "b": 0}
 
 
 if __name__ == '__main__':

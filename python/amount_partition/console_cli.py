@@ -202,51 +202,44 @@ def remove_recurring(
 
 
 @app.command()
-def suggest_deposits(
+def plan_deposits(
     skip: str = typer.Option('', '--skip', help="Comma-separated balance names to skip"),
-    is_monthly: bool = typer.Option(True, '--is-monthly/--not-monthly', help="True for regular monthly deposit, False for additional suggestion"),
-    amount_to_use: int = typer.Option(0, '--amount', help="Amount to normalize suggestions to (0 for no normalization)"),
+    is_monthly: bool = typer.Option(True, '--is-monthly/--not-monthly', help="True for regular monthly deposit, False for additional deposits"),
+    amount_to_use: int = typer.Option(0, '--amount', help="Amount to scale deposits plan to (0 for no normalization)"),
     db_dir: str = typer.Option('.', '--db-dir', help="Path to the database directory")
 ):
     """Suggest deposit amounts for each balance to meet targets and recurring deposits."""
     manager = BudgetManagerApi.from_storage(db_dir)
-    suggestions = manager.suggest_deposits(skip=skip, is_monthly=is_monthly, amount_to_use=amount_to_use)
+    deposits_plan = manager.plan_deposits(skip=skip, is_monthly=is_monthly, amount_to_use=amount_to_use)
     
-    if not suggestions:
-        typer.echo("No deposit suggestions available.")
+    if not deposits_plan:
+        typer.echo("No deposits plan available.")
         return
     
-    typer.echo("Deposit suggestions:")
+    typer.echo("Deposits plan:")
     typer.echo("===================")
     total = 0
-    for boxname, amount in suggestions.items():
+    for boxname, amount in deposits_plan.items():
         typer.echo(f"{boxname:<20} {amount}")
         total += amount
-    typer.echo(f"\nTotal suggested: {total}")
+    typer.echo(f"\nTotal planned: {total}")
 
 
 @app.command()
-def apply_suggestion(
+def plan_and_apply(
     skip: str = typer.Option('', '--skip', help="Comma-separated balance names to skip"),
-    is_monthly: bool = typer.Option(True, '--is-monthly/--not-monthly', help="True for regular monthly deposit, False for additional suggestion"),
-    amount_to_use: int = typer.Option(0, '--amount', help="Amount to normalize suggestions to (0 for no normalization)"),
+    is_monthly: bool = typer.Option(True, '--is-monthly/--not-monthly', help="True for regular monthly deposit, False for additional deposits"),
+    amount_to_use: int = typer.Option(0, '--amount', help="Amount to scale deposits plan to (0 for no normalization)"),
     db_dir: str = typer.Option('.', '--db-dir', help="Path to the database directory")
 ):
-    """Generate and apply deposit suggestions to the balances."""
+    """Generate and apply deposits plan to the balances."""
     manager = BudgetManagerApi.from_storage(db_dir)
-    suggestions = manager.suggest_deposits(skip=skip, is_monthly=is_monthly, amount_to_use=amount_to_use)
-    
-    if not suggestions:
-        typer.echo("No deposit suggestions to apply.")
-        return
-    
-    manager.apply_suggestion(suggestions)
-    manager.dump_data(db_dir)
-    
-    total_applied = sum(suggestions.values())
-    typer.echo(f"Applied deposit suggestions. Total: {total_applied}")
+    deposits_plan = manager.plan_and_apply(amount_to_use, is_monthly, skip)
+
+    total_applied = sum(deposits_plan.values())
+    typer.echo(f"Applied deposits plan. Total: {total_applied}")
     typer.echo("Applied amounts:")
-    for boxname, amount in suggestions.items():
+    for boxname, amount in deposits_plan.items():
         typer.echo(f"  {boxname}: +{amount}")
 
 
