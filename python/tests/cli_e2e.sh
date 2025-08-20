@@ -137,8 +137,8 @@ assert_num_eq '.periodic.new_car.amount' "50" "$json_out" >/dev/null
 assert_num_eq '.periodic.new_car.target' "0" "$json_out" >/dev/null
 
 # 8) Suggestions (may be empty depending on logic)
-$CLI suggest-deposits --db-dir "$DB_DIR" >/dev/null || true  # Only make sure no crash
-$CLI apply-suggestion --db-dir "$DB_DIR" --amount "$expected_free" || true
+$CLI plan-deposits --db-dir "$DB_DIR" >/dev/null
+$CLI plan-and-apply --db-dir "$DB_DIR" --amount "$expected_free"
 cli_to_json
 assert_jq '.partition.free >= 0 and .partition.vacation >= 0'
 
