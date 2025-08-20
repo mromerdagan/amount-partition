@@ -234,7 +234,7 @@ def plan_and_apply(
 ):
     """Generate and apply deposits plan to the balances."""
     manager = BudgetManagerApi.from_storage(db_dir)
-    deposits_plan = manager.plan_and_apply(amount_to_use, is_monthly, skip)
+    deposits_plan = manager.plan_and_apply(skip, is_monthly, amount_to_use)
 
     total_applied = sum(deposits_plan.values())
     typer.echo(f"Applied deposits plan. Total: {total_applied}")

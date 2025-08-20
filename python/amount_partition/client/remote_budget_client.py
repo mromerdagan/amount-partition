@@ -155,13 +155,35 @@ class RemoteBudgetManagerClient(BudgetManagerClient):
         self._raise_for_detailed_status(response)
         return response.json()
     
+    def plan_deposits(self, skip: str, is_monthly: bool, amount_to_use: int):
+        data = {
+            "skip": skip,
+            "is_monthly": is_monthly,
+            "amount_to_use": amount_to_use
+        }
+        response = requests.post(f"{self.api_url}/plan_deposits", json=data, params={"db_dir": self.db_path})
+        self._raise_for_detailed_status(response)
+        payload = response.json()
+
+        return payload.get("plan", {})
+
+    def plan_and_apply(self, skip: str, is_monthly: bool, amount_to_use: int):
+        data = {
+            "skip": skip,
+            "is_monthly": is_monthly,
+            "amount_to_use": amount_to_use
+        }
+        response = requests.post(f"{self.api_url}/plan_and_apply", json=data, params={"db_dir": self.db_path})
+        self._raise_for_detailed_status(response)
+        payload = response.json()
+        return payload.get("plan", {})
+
 if __name__ == "__main__":
     import json
     api_url = "http://127.0.0.1:8002"
     db_path = "/tmp/partition-bp/"
     client = RemoteBudgetManagerClient(api_url, db_path)
-    json_file = "/tmp/export.json"
-    with open(json_file, 'r') as f:
-        data = json.load(f)
-    client.import_json(data)
-    print(client.get_balances())
+    client.deposit(1000)
+    print(client.get_balances())    
+    print(client.plan_and_apply("", True, 1000))
+    print(client.get_balances())    

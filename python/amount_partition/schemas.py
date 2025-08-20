@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 
 class BalanceResponse(BaseModel):
@@ -64,3 +64,12 @@ class NewLoanRequest(BaseModel):
 
 class CreateDbRequest(BaseModel):
     location: str
+    
+
+class PlanDepositsRequest(BaseModel):
+    skip: str = Field(default="", description="Comma-separated balance names to skip")
+    is_monthly: bool = Field(default=True, description="True for regular monthly deposit; False for additional deposits")
+    amount_to_use: int = Field(default=0, ge=0, description="Total amount to linearly scale the plan to (0 = no scaling)")
+
+class PlanAndApplyRequest(PlanDepositsRequest):
+    pass

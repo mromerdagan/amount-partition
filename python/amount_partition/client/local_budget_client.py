@@ -1,4 +1,6 @@
 import json
+from collections import OrderedDict
+from datetime import datetime
 from amount_partition.api import BudgetManagerApi
 from amount_partition.client.budget_manager_client import BudgetManagerClient
 
@@ -102,6 +104,16 @@ class LocalBudgetManagerClient(BudgetManagerClient):
     def import_json(self, data: dict):
         manager = BudgetManagerApi.from_json(data)
         manager.dump_data(self.db_dir)
+
+    def plan_deposits(self, skip: str, is_monthly: bool, amount_to_use: int):
+        manager = BudgetManagerApi.from_storage(self.db_dir)
+        return manager.plan_deposits(skip, is_monthly, amount_to_use)
+
+    def plan_and_apply(self, skip: str, is_monthly: bool, amount_to_use: int):
+        manager = BudgetManagerApi.from_storage(self.db_dir)
+        data = manager.plan_and_apply(skip, is_monthly, amount_to_use)
+        manager.dump_data(self.db_dir)
+        return data
 
 if __name__ == "__main__":
     manager = LocalBudgetManagerClient("/tmp/partition-bp")

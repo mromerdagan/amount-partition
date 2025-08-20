@@ -285,7 +285,7 @@ class BudgetManagerApi(object):
 		return left
 
 
-	#### Suggestion methods
+	#### Deposits plan methods
 	@staticmethod
 	def _scale_deposit_plan(plan: dict[str, int], target_amount: int) -> dict[str, int]:
 		"""
@@ -410,7 +410,7 @@ class BudgetManagerApi(object):
 				raise KeyError(f"Key '{boxname}' is missing from database")
 			self.add_to_balance(boxname, deposit_plan[boxname])
 
-	def plan_and_apply(self, amount_to_use: int, is_monthly: bool, skip: str) -> Dict[str, int]:
+	def plan_and_apply(self, skip: str, is_monthly: bool, amount_to_use: int) -> Dict[str, int]:
 		deposit_plan = self.plan_deposits(skip=skip, is_monthly=is_monthly, amount_to_use=amount_to_use)
 		self._apply_deposit_plan(deposit_plan)
 		return deposit_plan
