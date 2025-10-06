@@ -46,7 +46,7 @@ class LocalBudgetManagerClient(BudgetManagerClient):
         manager.dump_data(self.db_dir)
         return {"balance": manager.balances[boxname], "free": manager.balances["free"]}
 
-    def spend(self, boxname: str, amount: int = None, use_credit: bool = False):
+    def spend(self, boxname: str, amount: int = None, use_credit: bool = True):
         manager = BudgetManagerApi.from_storage(self.db_dir)
         if amount is None:
             manager.spend(boxname, use_credit=use_credit)
