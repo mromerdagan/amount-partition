@@ -182,28 +182,32 @@ class BudgetShell(cmd.Cmd):
         console.print(f"Added {amount} to {box}. New balance: {result.get('balance', '?')}")
 
     def do_spend(self, arg):
-        "Spend amount from a box. Usage: spend <box> <amount> [--use-credit]"
+        """Spend from a balance. Usage: spend <boxname> <amount> [--use-cash]"""
         parts = arg.strip().split()
-        if len(parts) not in (2, 3):
-            console.print("[red]Usage: spend <box> <amount> [--use-credit][/red]")
-            return
-        box, amount = parts[0], parts[1]
-        use_credit = False
-        if len(parts) == 3 and parts[2] == "--use-credit":
-            use_credit = True
-        try:
-            amount = int(amount)
-        except Exception:
-            console.print("[red]Amount must be an integer.[/red]")
+        if len(parts) < 2:
+            console.print("[red]Usage: spend <boxname> <amount> [--use-cash][/red]")
             return
         
+        boxname = parts[0]
         try:
-            result = self.client.spend(box, amount, use_credit=use_credit)
+            amount = int(parts[1])
+        except ValueError:
+            console.print("[red]Amount must be an integer[/red]")
+            return
+        
+        use_credit = True  # default behavior
+        if len(parts) > 2 and parts[2] == "--use-cash":
+            use_credit = False
+        
+        try:
+            result = self.client.spend(boxname, amount, use_credit)
+            console.print(f"[green]Spent {amount} from '{boxname}'[/green]")
+            if use_credit:
+                console.print(f"[blue]Credit-spent balance: {result['credit-spent']}[/blue]")
+            console.print(f"New balance: {result['balance']}")
         except Exception as e:
-            console.print(f"[red]Error spending: {e}[/red]")
+            console.print(f"[red]Error: {e}[/red]")
             return
-        
-        console.print(f"Spent {amount} from {box}. New balance: {result.get('balance', '?')}")
 
     def do_transfer(self, arg):
         "Transfer amount from one box to another. Usage: transfer <from> <to> <amount>"

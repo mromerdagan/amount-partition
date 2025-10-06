@@ -71,18 +71,18 @@ def withdraw(
 
 @app.command()
 def spend(
-    boxname: str = typer.Argument(..., help="Balance to spend from"),
-    amount: int = typer.Argument(0, help="Amount to spend (0 spends all)"),
-    use_credit: bool = typer.Option(False, help="Add spent amount to 'credit-spent'"),
+    boxname: str = typer.Argument(..., help="Box to spend from"),
+    amount: int = typer.Argument(0, help="Amount to spend (0 empties box)"),
+    use_cash: bool = typer.Option(False, help="Don't add to credit-spent"),
     db_dir: str = typer.Option('.', '--db-dir', help="Path to the database directory")
 ):
-    """Spend an amount from a balance. Optionally add to 'credit-spent'."""
+    """Spend an amount from a balance. By default adds to credit-spent."""
     manager = BudgetManagerApi.from_storage(db_dir)
-    manager.spend(boxname, amount, use_credit)
+    manager.spend(boxname, amount, use_credit=(not use_cash))
     manager.dump_data(db_dir)
-    typer.echo(f"Spent {amount} from '{boxname}'. New balance: {manager.balances.get(boxname, 0)}")
-    if use_credit:
-        typer.echo(f"Added {amount} to 'credit-spent'.")
+    typer.echo(f"Spent {amount} from '{boxname}'. New balance: {manager.balances[boxname]}")
+    if not use_cash:
+        typer.echo(f"Credit-spent balance: {manager.balances['credit-spent']}")
 
 
 @app.command()

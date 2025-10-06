@@ -40,7 +40,7 @@ class BudgetManagerClient(ABC):
         pass
 
     @abstractmethod
-    def spend(self, boxname: str, amount: int = None, use_credit: bool = False):
+    def spend(self, boxname: str, amount: int = None, use_credit: bool = True):
         """Spend from a specific balance or all if no amount is specified."""
         pass
 

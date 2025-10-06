@@ -163,8 +163,8 @@ class BudgetManagerApi(object):
 				raise ValueError("'free' box must be greater or equal to 0 (max reduction: {})".format(self._balances['free']))
 			self._balances['free'] -= amount
 
-	def spend(self, boxname: str, amount: int = 0, use_credit: bool = False) -> None:
-		"""Spend an amount from a balance. If use_credit, add to 'credit-spent'."""
+	def spend(self, boxname: str, amount: int = 0, use_credit: bool = True) -> None:
+		"""Spend an amount from a balance. By default uses credit (adds to 'credit-spent')."""
 		if not(boxname in self._balances):
 			raise KeyError(f"Key '{boxname}' is missing from balances")
 		if not(amount):
@@ -444,4 +444,3 @@ if __name__ == "__main__": ## DEBUG
 	# DB = f"{homedir}/git/finance/partition-bp"
 	# fp = BudgetManagerApi.from_storage(DB)
 	fp = BudgetManagerApi()
-	

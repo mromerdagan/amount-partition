@@ -41,7 +41,7 @@ class WithdrawRequest(BaseModel):
 class SpendRequest(BaseModel):
     boxname: str
     amount: int = 0
-    use_credit: Optional[bool] = False
+    use_credit: bool = True
 
 class AddToBalanceRequest(BaseModel):
     boxname: str
