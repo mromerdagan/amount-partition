@@ -53,6 +53,10 @@ class InstalmentBalance(Balance):
         if not isinstance(other, InstalmentBalance):
             return NotImplemented
         return super().__eq__(other) and self.monthly_payment == other.monthly_payment
+    
+    @property
+    def exhausted(self) -> bool:
+        return self.amount == 0
 
     def pay_instalment(self) -> int:
         """Pay the monthly instalment from the balance. Returns the amount paid."""

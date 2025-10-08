@@ -104,3 +104,9 @@ class PlanDepositsRequest(BaseModel):
 
 class PlanAndApplyRequest(PlanDepositsRequest):
     pass
+
+class NewInstalmentRequest(BaseModel):
+    instalment_name: str
+    from_balance: str
+    num_instalments: int
+    monthly_payment: int

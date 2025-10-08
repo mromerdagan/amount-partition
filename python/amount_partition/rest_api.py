@@ -4,7 +4,7 @@ from typing import List, Dict
 from amount_partition.api import BudgetManagerApi
 from amount_partition.models import Balance, Target, PeriodicDeposit
 from amount_partition.schemas import (
-    BalanceResponse, PlanAndApplyRequest, PlanDepositsRequest, TargetResponse, PeriodicDepositResponse, DepositRequest, SetTargetRequest, RemoveTargetRequest, SetRecurringRequest, RemoveRecurringRequest, WithdrawRequest, SpendRequest, AddToBalanceRequest, TransferRequest, NewBoxRequest, RemoveBoxRequest, NewLoanRequest, CreateDbRequest
+    BalanceResponse, NewInstalmentRequest, PlanAndApplyRequest, PlanDepositsRequest, TargetResponse, PeriodicDepositResponse, DepositRequest, SetTargetRequest, RemoveTargetRequest, SetRecurringRequest, RemoveRecurringRequest, WithdrawRequest, SpendRequest, AddToBalanceRequest, TransferRequest, NewBoxRequest, RemoveBoxRequest, NewLoanRequest, CreateDbRequest
 )
 
 app = FastAPI()
@@ -258,6 +258,16 @@ def plan_and_apply(req: PlanAndApplyRequest = Body(...), db_dir: str = "."):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to plan/apply deposits: {e}")
+
+@app.post("/new_instalment")
+def new_instalment(req: NewInstalmentRequest = Body(...), db_dir: str = "."):
+    try:
+        manager = get_manager(db_dir)
+        manager.new_instalment(req.instalment_name, req.from_balance, req.num_instalments, req.monthly_payment)
+        manager.dump_data(db_dir)
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 

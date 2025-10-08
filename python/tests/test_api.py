@@ -4,6 +4,7 @@ import shutil
 import os
 from pathlib import Path
 from amount_partition.api import BudgetManagerApi
+from amount_partition.models import InstalmentBalance
 
 class TestInstatiateBudgetManagerApi(unittest.TestCase):
     def setUp(self):
@@ -323,6 +324,247 @@ class TestLinearScaling(unittest.TestCase):
         out = BudgetManagerApi._scale_deposit_plan(s, 0)
         assert out == {"a": 0, "b": 0}
 
+class TestInstalment(unittest.TestCase):
+    def setUp(self):
+        self.tempdir = tempfile.mkdtemp()
+        BudgetManagerApi.create_db(self.tempdir)
+        self.db = BudgetManagerApi.from_storage(self.tempdir)
+        # Create a balance with some money for testing
+        self.db.deposit(1000)
+        self.db.new_box('source_box')
+        self.db.add_to_balance('source_box', 500)
+
+    def tearDown(self):
+        shutil.rmtree(self.tempdir)
+
+    def test_missing_from_balance_raises(self):
+        with self.assertRaises(KeyError) as context:
+            self.db.new_instalment('test_inst', 'nonexistent_box', 5, 100)
+        self.assertIn("missing from database", str(context.exception))
+
+    def test_existing_instalment_name_raises(self):
+        self.db.new_box('existing_box')
+        with self.assertRaises(KeyError) as context:
+            self.db.new_instalment('existing_box', 'source_box', 5, 100)
+        self.assertIn("already exists", str(context.exception))
+
+    def test_invalid_num_instalments_raises(self):
+        with self.assertRaises(ValueError) as context:
+            self.db.new_instalment('test_inst', 'source_box', 0, 100)
+        self.assertIn("num_instalments must be at least 1", str(context.exception))
+
+        with self.assertRaises(ValueError) as context:
+            self.db.new_instalment('test_inst', 'source_box', -1, 100)
+        self.assertIn("num_instalments must be at least 1", str(context.exception))
+
+    def test_invalid_monthly_payment_raises(self):
+        with self.assertRaises(ValueError) as context:
+            self.db.new_instalment('test_inst', 'source_box', 5, 0)
+        self.assertIn("monthly_payment must be positive", str(context.exception))
+
+        with self.assertRaises(ValueError) as context:
+            self.db.new_instalment('test_inst', 'source_box', 5, -100)
+        self.assertIn("monthly_payment must be positive", str(context.exception))
+
+    def test_insufficient_funds_raises(self):
+        # Try to create instalment requiring 600 total (5 * 120) when balance has 500
+        with self.assertRaises(ValueError) as context:
+            self.db.new_instalment('test_inst', 'source_box', 5, 120)
+        self.assertIn("Insufficient funds", str(context.exception))
+
+    def test_successful_instalment_creation(self):
+        # Create instalment: 5 payments of 80 each = 400 total
+        self.db.new_instalment('test_inst', 'source_box', 5, 80)
+
+        # Check source balance was reduced
+        self.assertEqual(self.db._balances['source_box'].amount, 100)  # 500 - 400
+
+        # Check instalment box was created with correct properties
+        self.assertIn('test_inst', self.db._balances)
+        instalment_box = self.db._balances['test_inst']
+        self.assertTrue(isinstance(instalment_box, InstalmentBalance))
+        self.assertEqual(instalment_box.amount, 400)  # total amount
+        self.assertEqual(instalment_box.monthly_payment, 80)
+
+    def test_single_instalment(self):
+        """Test boundary case where num_instalments = 1"""
+        self.db.new_instalment('single_inst', 'source_box', 1, 100)
+        
+        # Total amount should equal monthly payment
+        instalment_box = self.db._balances['single_inst']
+        self.assertTrue(isinstance(instalment_box, InstalmentBalance))
+        self.assertEqual(instalment_box.amount, 100)
+        self.assertEqual(instalment_box.monthly_payment, 100)
+        self.assertEqual(self.db._balances['source_box'].amount, 400)  # 500 - 100
+
+    def test_exact_balance_match(self):
+        """Test when total amount exactly matches source balance"""
+        # Create instalment that uses entire source balance (5 * 100 = 500)
+        self.db.new_instalment('exact_inst', 'source_box', 5, 100)
+        
+        # Source balance should be zero
+        self.assertEqual(self.db._balances['source_box'].amount, 0)
+        
+        # Instalment should have correct properties
+        instalment_box = self.db._balances['exact_inst']
+        self.assertTrue(isinstance(instalment_box, InstalmentBalance))
+        self.assertEqual(instalment_box.amount, 500)
+        self.assertEqual(instalment_box.monthly_payment, 100)
+
+    def test_state_immutability_on_failure(self):
+        """Test that _balances remains unchanged when operations fail"""
+        original_balances = self.db._balances.copy()
+        original_amount = self.db._balances['source_box'].amount
+        
+        # Test insufficient funds case
+        try:
+            self.db.new_instalment('test_inst', 'source_box', 10, 100)  # 1000 total > 500 available
+        except ValueError:
+            # Verify source balance is unchanged
+            self.assertEqual(self.db._balances['source_box'].amount, original_amount)
+            # Verify no new balance was added
+            self.assertEqual(set(self.db._balances.keys()), set(original_balances.keys()))
+        
+        # Test invalid monthly payment
+        try:
+            self.db.new_instalment('test_inst', 'source_box', 5, -100)
+        except ValueError:
+            # Verify source balance is unchanged
+            self.assertEqual(self.db._balances['source_box'].amount, original_amount)
+            # Verify no new balance was added
+            self.assertEqual(set(self.db._balances.keys()), set(original_balances.keys()))
+
+    def test_multiple_instalments_from_same_source(self):
+        """Test creating multiple instalments from the same source balance"""
+        # Create first instalment: 3 payments of 50 each = 150 total
+        self.db.new_instalment('inst1', 'source_box', 3, 50)
+        
+        # Verify first instalment
+        inst1 = self.db._balances['inst1']
+        self.assertTrue(isinstance(inst1, InstalmentBalance))
+        self.assertEqual(inst1.amount, 150)
+        self.assertEqual(inst1.monthly_payment, 50)
+        
+        # Source should have 350 remaining (500 - 150)
+        self.assertEqual(self.db._balances['source_box'].amount, 350)
+        
+        # Create second instalment: 2 payments of 100 each = 200 total
+        self.db.new_instalment('inst2', 'source_box', 2, 100)
+        
+        # Verify second instalment
+        inst2 = self.db._balances['inst2']
+        self.assertTrue(isinstance(inst2, InstalmentBalance))
+        self.assertEqual(inst2.amount, 200)
+        self.assertEqual(inst2.monthly_payment, 100)
+        
+        # Source should have 150 remaining (350 - 200)
+        self.assertEqual(self.db._balances['source_box'].amount, 150)
+        
+        # Verify first instalment remains unchanged
+        self.assertEqual(self.db._balances['inst1'].amount, 150)
+        self.assertEqual(self.db._balances['inst1'].monthly_payment, 50)
+
+class TestDepositWithInstallments(unittest.TestCase):
+    def setUp(self):
+        self.tempdir = tempfile.mkdtemp()
+        BudgetManagerApi.create_db(self.tempdir)
+        self.db = BudgetManagerApi.from_storage(self.tempdir)
+        # Set initial free balance
+        self.db._balances['free'].amount = 1000
+        
+    def tearDown(self):
+        shutil.rmtree(self.tempdir)
+
+    def test_deposit_with_active_instalment(self):
+        """Test deposit behavior with credit spending and active instalment"""
+        # Setup initial state
+        self.db._balances['credit-spent'].amount = 200
+        self.db._balances['plan1'] = InstalmentBalance(3000, 1000)  # 3 payments of 1000
+        initial_free = self.db._balances['free'].amount
+
+        # Make deposit
+        self.db.deposit(1000, monthly=True)
+
+        # Verify free balance increased by deposit + credit + instalment
+        expected_free = initial_free + 1000 + 200 + 1000
+        self.assertEqual(self.db._balances['free'].amount, expected_free)
+        
+        # Verify credit-spent was reset
+        self.assertEqual(self.db._balances['credit-spent'].amount, 0)
+        
+        # Verify instalment was reduced
+        self.assertEqual(self.db._balances['plan1'].amount, 2000)
+
+    def test_sequential_instalment_payments(self):
+        """Test instalment payments over multiple deposits"""
+        # Setup instalment plan
+        self.db._balances['plan1'] = InstalmentBalance(3000, 1000)  # 3 payments of 1000
+        
+        # First deposit
+        self.db.deposit(100, monthly=True)
+        self.assertEqual(self.db._balances['plan1'].amount, 2000)
+        self.assertFalse(self.db._balances['plan1'].exhausted)
+        
+        # Second deposit
+        self.db.deposit(100, monthly=True)
+        self.assertEqual(self.db._balances['plan1'].amount, 1000)
+        self.assertFalse(self.db._balances['plan1'].exhausted)
+        
+        # Third deposit
+        self.db.deposit(100, monthly=True)
+        self.assertEqual(self.db._balances['plan1'].amount, 0)
+        self.assertTrue(self.db._balances['plan1'].exhausted)
+
+    def test_exhausted_instalment_skipped(self):
+        """Test that exhausted instalments are skipped during deposit"""
+        # Setup exhausted instalment
+        self.db._balances['plan1'] = InstalmentBalance(0, 1000)  # Start with 0 amount
+        initial_free = self.db._balances['free'].amount
+        
+        # Make deposit
+        deposit_amount = 500
+        self.db.deposit(deposit_amount, monthly=True)
+        
+        # Verify instalment wasn't modified
+        self.assertEqual(self.db._balances['plan1'].amount, 0)
+        self.assertTrue(self.db._balances['plan1'].exhausted)
+        
+        # Verify free only increased by deposit amount (no instalment payment)
+        self.assertEqual(self.db._balances['free'].amount, initial_free + deposit_amount)
+
+    def test_multiple_active_instalments(self):
+        """Test deposit with multiple active instalments"""
+        # Setup two instalments
+        self.db._balances['plan1'] = InstalmentBalance(2000, 500)  # 4 payments of 500
+        self.db._balances['plan2'] = InstalmentBalance(3000, 1000)  # 3 payments of 1000
+        initial_free = self.db._balances['free'].amount
+        
+        # Make deposit
+        deposit_amount = 200
+        self.db.deposit(deposit_amount, monthly=True)
+        
+        # Verify both instalments released their payments
+        self.assertEqual(self.db._balances['plan1'].amount, 1500)  # 2000 - 500
+        self.assertEqual(self.db._balances['plan2'].amount, 2000)  # 3000 - 1000
+        
+        # Verify free increased by deposit + both instalment payments
+        expected_free = initial_free + deposit_amount + 500 + 1000
+        self.assertEqual(self.db._balances['free'].amount, expected_free)
+
+    def test_deposit_without_instalments(self):
+        """Test deposit behavior with no instalments present"""
+        # Setup credit spending
+        self.db._balances['credit-spent'].amount = 300
+        initial_free = self.db._balances['free'].amount
+        
+        # Make deposit
+        deposit_amount = 500
+        self.db.deposit(deposit_amount, monthly=True)
+        
+        # Verify free increased by deposit + credit merge only
+        expected_free = initial_free + deposit_amount + 300
+        self.assertEqual(self.db._balances['free'].amount, expected_free)
+        self.assertEqual(self.db._balances['credit-spent'].amount, 0)
 
 if __name__ == '__main__':
     unittest.main()

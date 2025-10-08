@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from collections import OrderedDict
 from typing import Dict
 from amount_partition.parsing import dump_balances_file, dump_targets_file, dump_recurring_file ,parse_balances_file, parse_targets_file, parse_recurring_file
-from amount_partition.models import Balance, FreeBalance, CreditBalance, Target, PeriodicDeposit, VirtualBalance, BalanceFactory
+from amount_partition.models import Balance, FreeBalance, CreditBalance, InstalmentBalance, Target, PeriodicDeposit, VirtualBalance, BalanceFactory
 
 
 class BudgetManagerApi(object):
@@ -148,8 +148,21 @@ class BudgetManagerApi(object):
 		"""Deposit an amount into 'free'. Optionally merge 'credit-spent'."""
 		self._balances['free'].amount += amount
 		if monthly:
+			# Merge credit card spending with 'free'
 			self._balances['free'].amount += self._balances['credit-spent'].amount
 			self._balances['credit-spent'].amount = 0
+   
+			# Release monthly amount stored in instalments to free
+			for balance in self._balances.values():
+				if not isinstance(balance, InstalmentBalance):
+					continue
+		
+				installment: InstalmentBalance = balance
+				if installment.exhausted:
+					continue
+ 
+				monthly_amount = installment.pay_instalment()
+				self._balances['free'].amount += monthly_amount
 
 	def withdraw(self, amount: int = 0) -> None:
 		"""Withdraw an amount from 'free'. If amount is 0, empty 'free'."""
@@ -426,6 +439,40 @@ class BudgetManagerApi(object):
 				reserved_amount += amount_got
 		return reserved_amount
 
+	# Instalments
+ 
+	def new_instalment(self, instalment_name: str, from_balance: str, num_instalments: int, monthly_payment: int) -> None:
+		"""
+		Set up an instalment plan to pay off a specific amount from a balance over a number of months.
+
+		Params:
+		instalment_name (str): Name of the instalment plan.
+		from_balance (str): The balance from which the instalments will be paid.
+		num_instalments (int): Number of months over which to spread the payments.
+		monthly_payment (int): Amount to pay each month.
+
+		Raises:
+		KeyError: If the specified balance does not exist.
+  		KeyError: If the specified instalment_name already exists.
+		ValueError: If num_instalments is less than 1 or monthly_payment is not positive.
+		ValueError: If total amount (num_intallments * monthly_payment) is greater than available amount in 'from_balance'
+		"""
+  
+		if from_balance not in self._balances:
+			raise KeyError(f"Key '{from_balance}' is missing from database")
+		if instalment_name in self._balances:
+			raise KeyError(f"Instalment box '{instalment_name}' already exists")
+		if num_instalments < 1:
+			raise ValueError("num_instalments must be at least 1")
+		if monthly_payment <= 0:
+			raise ValueError("monthly_payment must be positive")
+
+		total_amount = num_instalments * monthly_payment
+		if self._balances[from_balance].amount < total_amount:
+			raise ValueError(f"Insufficient funds in '{from_balance}' for the total instalment amount of {total_amount}")
+
+		self._balances[from_balance].amount -= total_amount
+		self._balances[instalment_name] = InstalmentBalance(total_amount, monthly_payment)
 
 if __name__ == "__main__": ## DEBUG
 	# homedir = os.environ['HOME']
