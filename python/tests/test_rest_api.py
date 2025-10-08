@@ -90,3 +90,44 @@ class TestDepositAndTransfer(RestApiTestCase):
         balances = response.json()
         self.assertEqual(balances["savings"]["amount"], 100)
         self.assertGreaterEqual(balances["free"]["amount"], 900)
+        
+# ---------- Instalment / loan related endpoints ----------
+
+class TestInstalmentEndpoints(RestApiTestCase):
+    """Tests for creating and updating instalment-type balances."""
+
+    def test_create_new_instalment(self):
+        """POST /new_instalment creates a new instalment balance."""
+        response = client.post(
+            "/new_instalment",
+            json={"instalment_name": "sofa", "from_balance": "free",
+                  "num_instalments": 6, "monthly_payment": 200},
+            params={"db_dir": self.tempdir},
+        )
+        
+        # Expect failure (400) due to insufficient funds in 'free' balance
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("detail", response.json())
+        detail = response.json()["detail"]
+        self.assertIn("Insufficient funds", detail)
+        
+        # Deposit enough to cover the instalments
+        client.post("/deposit", json={"amount": 1200}, params={"db_dir": self.tempdir})
+        response = client.post(
+            "/new_instalment",
+            json={"instalment_name": "sofa", "from_balance": "free",
+                  "num_instalments": 6, "monthly_payment": 200},
+            params={"db_dir": self.tempdir},
+        )
+        
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("status", data)
+        self.assertEqual(data["status"], "ok")
+        
+        response = client.get("/balances", params={"db_dir": self.tempdir})
+        self.assertEqual(response.status_code, 200)
+        balances = response.json()
+        self.assertIn("sofa", balances)
+        self.assertEqual(balances["sofa"]["type"], "instalment")
+        self.assertEqual(balances["sofa"]["amount"], 1200)  # 6 * 200
