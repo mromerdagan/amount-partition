@@ -38,7 +38,7 @@ def summary(db_dir: str = typer.Option('.', '--db-dir', help="Path to the databa
         balances=manager.balances,
         targets=manager._targets,
         recurring=manager._recurring,
-        total=manager.get_total()
+        total=manager.total.amount
     )
 
 
@@ -46,14 +46,14 @@ def summary(db_dir: str = typer.Option('.', '--db-dir', help="Path to the databa
 def deposit(
     amount: int = typer.Argument(..., help="Amount to deposit into 'free' balance"),
     db_dir: str = typer.Option('.', '--db-dir', help="Path to the database directory"),
-    merge_with_credit: bool = typer.Option(True, help="Merge 'credit-spent' into 'free' on deposit")
+    monthly: bool = typer.Option(True, help="Merge 'credit-spent' into 'free' on deposit")
 ):
     """Deposit an amount into the 'free' balance. Optionally merge 'credit-spent'."""
     manager = BudgetManagerApi.from_storage(db_dir)
-    manager.deposit(amount, merge_with_credit=merge_with_credit)
+    manager.deposit(amount, monthly=monthly)
     manager.dump_data(db_dir)
-    typer.echo(f"Deposited {amount} into 'free'. New 'free' balance: {manager.balances['free']}")
-    if merge_with_credit:
+    typer.echo(f"Deposited {amount} into 'free'. New 'free' balance: {manager.balances['free'].amount}")
+    if monthly:
         typer.echo(f"'credit-spent' merged into 'free'.")
 
 
@@ -66,7 +66,7 @@ def withdraw(
     manager = BudgetManagerApi.from_storage(db_dir)
     manager.withdraw(amount)
     manager.dump_data(db_dir)
-    typer.echo(f"Withdrew {amount} from 'free'. New 'free' balance: {manager.balances['free']}")
+    typer.echo(f"Withdrew {amount} from 'free'. New 'free' balance: {manager.balances['free'].amount}")
 
 
 @app.command()
@@ -80,9 +80,9 @@ def spend(
     manager = BudgetManagerApi.from_storage(db_dir)
     manager.spend(boxname, amount, use_credit=(not use_cash))
     manager.dump_data(db_dir)
-    typer.echo(f"Spent {amount} from '{boxname}'. New balance: {manager.balances[boxname]}")
+    typer.echo(f"Spent {amount} from '{boxname}'. New balance: {manager.balances[boxname].amount}")
     if not use_cash:
-        typer.echo(f"Credit-spent balance: {manager.balances['credit-spent']}")
+        typer.echo(f"Credit-spent balance: {manager.balances['credit-spent'].amount}")
 
 
 @app.command()
@@ -95,7 +95,7 @@ def add_to_balance(
     manager = BudgetManagerApi.from_storage(db_dir)
     manager.add_to_balance(boxname, amount)
     manager.dump_data(db_dir)
-    typer.echo(f"Added {amount} to '{boxname}'. New balance: {manager.balances[boxname]}")
+    typer.echo(f"Added {amount} to '{boxname}'. New balance: {manager.balances[boxname].amount}")
 
 
 @app.command()

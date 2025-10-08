@@ -52,7 +52,7 @@ class TestLocalBudgetManagerClient(unittest.TestCase):
         # Validate balances
         balances1 = client1.get_balances()
         balances2 = client2.get_balances()
-        self.assertEqual(dict(balances1), dict(balances2))
+        self.assertEqual(balances1, balances2)
 
         # Validate targets
         targets1 = client1.get_targets()

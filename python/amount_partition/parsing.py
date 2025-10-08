@@ -1,7 +1,7 @@
 import pathlib
 from collections import OrderedDict
 from datetime import datetime
-from .models import Target, PeriodicDeposit
+from .models import Balance, BalanceFactory, Target, PeriodicDeposit
 
 def extract_lines(raw: str) -> list[str]:
     """Extracts non-empty, non-comment lines from a raw string."""
@@ -11,19 +11,51 @@ def extract_lines(raw: str) -> list[str]:
     lines = [l for l in lines if l]  # remove empty lines
     return lines
 
-def parse_balance_line(line: str) -> tuple[str, int]:
-    """Parse a line from the partition file into (boxname, amount)."""
-    boxname, size = line.split()
-    return boxname, int(size)
+def parse_balance_line(line: str) -> tuple[str, Balance]:
+    """
+    Parse a line from the partition file into (boxname, Balance).
 
-def parse_balances_file(partition_path: pathlib.Path) -> dict[str, int]:
-    """Parse a balances file into a dictionary of boxname to amount."""
+    - If the line has two columns, assume type_ is 'regular'.
+    - Otherwise, take type_ from the third column and validate.
+    """
+    allowed_types = {"credit", "free", "virtual", "instalment", "regular"}
+
+    parts = line.split()
+    num_parts = len(parts)
+    if num_parts < 2:
+        raise ValueError(f"Malformed line in partition file: '{line}'. Expected at least 2 columns.")
+
+    if num_parts == 2:  # Support legacy format without type_
+        boxname, size = parts
+        if boxname == "free":
+            type_ = "free"
+        elif boxname == "credit-spent":
+            type_ = "credit"
+        else:
+            type_ = "regular"
+        extra_args = []
+        
+    else:  # num_parts >= 3
+        boxname, size, type_, *extra_args = parts
+        if type_ not in allowed_types:
+            raise ValueError(
+                f"Invalid type '{type_}' in line {line!r}. "
+                f"Allowed types: {', '.join(sorted(allowed_types))}"
+            )
+    
+    balance = BalanceFactory.create_balance(int(size), type_, *extra_args)
+
+    return boxname, balance
+
+
+def parse_balances_file(partition_path: pathlib.Path) -> dict[str, Balance]:
+    """Parse a balances file into a dictionary of boxname to Balance."""
     raw = partition_path.read_text()
     lines = extract_lines(raw)
     balances = OrderedDict()
     for line in lines:
-        boxname, amount = parse_balance_line(line)
-        balances[boxname] = amount
+        boxname, balance = parse_balance_line(line)
+        balances[boxname] = balance
     return balances
 
 def parse_target_line(line: str) -> tuple[str, Target]:
@@ -67,9 +99,10 @@ def parse_recurring_file(recurring_path: pathlib.Path) -> dict[str, PeriodicDepo
         recurring[boxname] = periodic
     return recurring
 
-def dump_balances_file(partition_path: pathlib.Path, balances: dict[str, int]) -> None:
+def dump_balances_file(partition_path: pathlib.Path, balances: dict[str, Balance]) -> None:
     """Write the balances dict to the partition file."""
-    lines = [f"{boxname:<20} {amount}" for boxname, amount in balances.items()]
+    lines = [f"{balance_name:<20}" + "".join("{:<20}".format(c) for c in balance.as_list()) for
+             balance_name, balance in balances.items()]
     content = "\n".join(lines) + "\n"
     partition_path.write_text(content)
 

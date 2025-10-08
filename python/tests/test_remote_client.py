@@ -28,11 +28,11 @@ class TestRemoteBudgetManagerClient(unittest.TestCase):
         mock_response.status_code = 200
         mock_post.return_value = mock_response
 
-        result = self.client.deposit(100, merge_with_credit=True)
+        result = self.client.deposit(100, monthly=True)
         self.assertEqual(result["free"], 200)
         mock_post.assert_called_once_with(
             "http://fake-api/deposit",
-            json={"amount": 100, "merge_with_credit": True},
+            json={"amount": 100, "monthly": True},
             params={"db_dir": "/tmp/budget"}
         )
 
