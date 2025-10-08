@@ -39,8 +39,8 @@ class TestInstatiateBudgetManagerApi(unittest.TestCase):
         # Check default balances
         self.assertIn('free', manager.balances)
         self.assertIn('credit-spent', manager.balances)
-        self.assertEqual(manager.balances['free'], 0)
-        self.assertEqual(manager.balances['credit-spent'], 0)
+        self.assertEqual(manager.balances['free'].amount, 0)
+        self.assertEqual(manager.balances['credit-spent'].amount, 0)
 
 class TestListBalances(unittest.TestCase):
     def setUp(self):
@@ -71,15 +71,15 @@ class TestDeposit(unittest.TestCase):
         shutil.rmtree(self.tempdir)
 
     def test_deposit_increases_free(self):
-        initial = self.db._balances['free']
+        initial = self.db._balances['free'].amount
         self.db.deposit(100)
-        self.assertEqual(self.db._balances['free'], initial + 100)
+        self.assertEqual(self.db._balances['free'].amount, initial + 100)
 
     def test_deposit_merges_credit(self):
-        self.db._balances['credit-spent'] = 50
-        self.db.deposit(100, merge_with_credit=True)
-        self.assertEqual(self.db._balances['free'], 150)
-        self.assertEqual(self.db._balances['credit-spent'], 0)
+        self.db._balances['credit-spent'].amount = 50
+        self.db.deposit(100, monthly=True)
+        self.assertEqual(self.db._balances['free'].amount, 150)
+        self.assertEqual(self.db._balances['credit-spent'].amount, 0)
 
 class TestWithdraw(unittest.TestCase):
     def setUp(self):
@@ -93,11 +93,11 @@ class TestWithdraw(unittest.TestCase):
 
     def test_withdraw_amount(self):
         self.db.withdraw(50)
-        self.assertEqual(self.db._balances['free'], 150)
+        self.assertEqual(self.db._balances['free'].amount, 150)
 
     def test_withdraw_all(self):
         self.db.withdraw()
-        self.assertEqual(self.db._balances['free'], 0)
+        self.assertEqual(self.db._balances['free'].amount, 0)
 
 class TestSpend(unittest.TestCase):
     def setUp(self):
@@ -113,16 +113,16 @@ class TestSpend(unittest.TestCase):
 
     def test_spend_amount(self):
         self.db.spend('test', 40)
-        self.assertEqual(self.db._balances['test'], 60)
+        self.assertEqual(self.db._balances['test'].amount, 60)
 
     def test_spend_all(self):
         self.db.spend('test')
-        self.assertEqual(self.db._balances['test'], 0)
+        self.assertEqual(self.db._balances['test'].amount, 0)
 
     def test_spend_with_credit(self):
         self.db.spend('test', 20, use_credit=True)
-        self.assertEqual(self.db._balances['test'], 80)
-        self.assertEqual(self.db._balances['credit-spent'], 20)
+        self.assertEqual(self.db._balances['test'].amount, 80)
+        self.assertEqual(self.db._balances['credit-spent'].amount, 20)
 
 class TestAddToBalance(unittest.TestCase):
     def setUp(self):
@@ -137,8 +137,8 @@ class TestAddToBalance(unittest.TestCase):
 
     def test_add_to_balance(self):
         self.db.add_to_balance('test', 50)
-        self.assertEqual(self.db._balances['test'], 50)
-        self.assertEqual(self.db._balances['free'], 150)
+        self.assertEqual(self.db._balances['test'].amount, 50)
+        self.assertEqual(self.db._balances['free'].amount, 150)
 
 class TestTransferBetweenBalances(unittest.TestCase):
     def setUp(self):
@@ -156,8 +156,8 @@ class TestTransferBetweenBalances(unittest.TestCase):
 
     def test_transfer(self):
         self.db.transfer_between_balances('a', 'b', 30)
-        self.assertEqual(self.db._balances['a'], 70)
-        self.assertEqual(self.db._balances['b'], 80)
+        self.assertEqual(self.db._balances['a'].amount, 70)
+        self.assertEqual(self.db._balances['b'].amount, 80)
 
 class TestNewBoxRemoveBox(unittest.TestCase):
     def setUp(self):
@@ -191,8 +191,8 @@ class TestNewLoan(unittest.TestCase):
     def test_new_loan(self):
         self.db.new_loan(100, '2030-01')
         self.assertIn('self-loan', self.db._balances)
-        self.assertEqual(self.db._balances['self-loan'], -100)
-        self.assertEqual(self.db._balances['free'], 100)
+        self.assertEqual(self.db._balances['self-loan'].amount, -100)
+        self.assertEqual(self.db._balances['free'].amount, 100)
         self.assertIn('self-loan', self.db._targets)
 
 class TestSetTarget(unittest.TestCase):
@@ -236,10 +236,11 @@ class TestSuggestDepositsApplySuggestion(unittest.TestCase):
         deposits_plan = self.db.plan_deposits()
         self.db._apply_deposit_plan(deposits_plan)
         # After applying, balances should increase by suggested amount
-        self.assertEqual(self.db._balances['box1'], deposits_plan['box1'])
-        self.assertEqual(self.db._balances['box2'], deposits_plan['box2'])
+        self.assertEqual(self.db._balances['box1'].amount, deposits_plan['box1'])
+        self.assertEqual(self.db._balances['box2'].amount, deposits_plan['box2'])
         # 'free' should decrease by the sum
-        self.assertEqual(self.db._balances['free'], 1000 - deposits_plan['box1'] - deposits_plan['box2'])
+        self.assertEqual(self.db._balances['free'].amount, 
+                        1000 - deposits_plan['box1'] - deposits_plan['box2'])
 
 
 class TestToJson(unittest.TestCase):
@@ -264,8 +265,10 @@ class TestToJson(unittest.TestCase):
         self.assertIn('partition', data)
         self.assertIn('goals', data)
         self.assertIn('periodic', data)
-        self.assertEqual(data['partition']['target_box'], 200)
-        self.assertEqual(data['partition']['recurring_box'], 100)
+        self.assertEqual(data['partition']['target_box']["amount"], 
+                        self.db._balances['target_box'].amount)
+        self.assertEqual(data['partition']['recurring_box']["amount"], 
+                        self.db._balances['recurring_box'].amount)
         self.assertEqual(data['goals']['target_box']['goal'], 300)
         self.assertEqual(data['goals']['target_box']['due'], '2030-01')
         self.assertEqual(data['periodic']['recurring_box']['amount'], 50)
@@ -276,7 +279,7 @@ class TestFromJson(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
         self.data = {
-            'partition': {'free': 100, 'box2': 50},
+            'partition': {'free': {'amount': 100, "type": "free"}, 'box2': {'amount': 50, "type": "regular"}},
             'goals': {'box2': {'goal': 200, 'due': '2031-05'}},
             'periodic': {'box2': {'amount': 20, 'target': 100}}
         }
@@ -286,8 +289,8 @@ class TestFromJson(unittest.TestCase):
 
     def test_from_json_creates_correct_state(self):
         db = BudgetManagerApi.from_json(self.data)
-        self.assertEqual(db.balances['free'], 100)
-        self.assertEqual(db.balances['box2'], 50)
+        self.assertEqual(db.balances['free'].amount, 100)
+        self.assertEqual(db.balances['box2'].amount, 50)
         self.assertIn('box2', db._targets)
         self.assertEqual(db._targets['box2'].goal, 200)
         self.assertEqual(db._targets['box2'].due.strftime('%Y-%m'), '2031-05')

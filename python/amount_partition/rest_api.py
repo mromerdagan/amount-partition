@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Body, UploadFile, File, Query
 import json
 from typing import List, Dict
 from amount_partition.api import BudgetManagerApi
-from amount_partition.models import Target, PeriodicDeposit
+from amount_partition.models import Balance, Target, PeriodicDeposit
 from amount_partition.schemas import (
     BalanceResponse, PlanAndApplyRequest, PlanDepositsRequest, TargetResponse, PeriodicDepositResponse, DepositRequest, SetTargetRequest, RemoveTargetRequest, SetRecurringRequest, RemoveRecurringRequest, WithdrawRequest, SpendRequest, AddToBalanceRequest, TransferRequest, NewBoxRequest, RemoveBoxRequest, NewLoanRequest, CreateDbRequest
 )
@@ -25,7 +25,9 @@ def get_balances(db_dir: str = "."):
     """ Return balances as a dictionary of BalanceResponse """
     try:
         manager = get_manager(db_dir)
-        return {k: BalanceResponse(name=k, amount=v) for k, v in manager.balances.items()}
+        balances: dict[str, Balance] = manager.balances
+        return {name: balance.to_balance_response() for name, balance in balances.items()}
+
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -60,7 +62,7 @@ def get_recurring(db_dir: str = "."):
 def deposit(req: DepositRequest, db_dir: str = "."):
     try:
         manager = get_manager(db_dir)
-        manager.deposit(req.amount, merge_with_credit=req.merge_with_credit)
+        manager.deposit(req.amount, monthly=req.monthly)
         manager.dump_data(db_dir)
         return {"free": manager.balances["free"]}
     except Exception as e:

@@ -48,10 +48,10 @@ class RemoteBudgetManagerClient(BudgetManagerClient):
             for name, periodic_response in response.json().items()
         }
     
-    def deposit(self, amount: int, merge_with_credit: bool = False):
+    def deposit(self, amount: int, monthly: bool = False):
         data = {
             "amount": amount,
-            "merge_with_credit": merge_with_credit
+            "monthly": monthly
         }
         response = requests.post(f"{self.api_url}/deposit", json=data, params={"db_dir": self.db_path})
         self._raise_for_detailed_status(response)
@@ -72,7 +72,7 @@ class RemoteBudgetManagerClient(BudgetManagerClient):
         self._raise_for_detailed_status(response)
         return response.json()
     
-    def spend(self, boxname: str, amount: int = 0, use_credit: bool = False):
+    def spend(self, boxname: str, amount: int = 0, use_credit: bool = True):
         data = {"boxname": boxname, "amount": amount, "use_credit": use_credit}
         response = requests.post(f"{self.api_url}/spend", json=data, params={"db_dir": self.db_path})
         self._raise_for_detailed_status(response)

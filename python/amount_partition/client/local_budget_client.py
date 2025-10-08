@@ -28,9 +28,9 @@ class LocalBudgetManagerClient(BudgetManagerClient):
         manager = BudgetManagerApi.from_storage(self.db_dir)
         return manager.get_recurring()
 
-    def deposit(self, amount: int, merge_with_credit: bool = False):
+    def deposit(self, amount: int, monthly: bool = False):
         manager = BudgetManagerApi.from_storage(self.db_dir)
-        manager.deposit(amount, merge_with_credit=merge_with_credit)
+        manager.deposit(amount, monthly=monthly)
         manager.dump_data(self.db_dir)
         return {"free": manager.balances['free']}
 

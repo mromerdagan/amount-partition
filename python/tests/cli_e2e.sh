@@ -90,8 +90,8 @@ assert_jq 'type=="object"'
 # Schema check (keys exist)
 assert_jq 'has("partition") and has("goals") and has("periodic")'
 
-# Baseline: capture initial partition.free (don’t assume 0)
-initial_free="$(jq -r '.partition.free // 0' "$json_out")"
+# Baseline: capture initial partition.free.amount (don’t assume 0)
+initial_free="$(jq -r '.partition.free.amount // 0' "$json_out")"
 # Force numeric
 initial_free=$(( initial_free + 0 ))
 echo "ℹ️  initial_free=$initial_free"
@@ -100,32 +100,32 @@ echo "ℹ️  initial_free=$initial_free"
 $CLI deposit 100 --db-dir "$DB_DIR"
 cli_to_json
 expected_free=$(( initial_free + 100 ))
-assert_num_eq '.partition.free' "$expected_free"
+assert_num_eq '.partition.free.amount' "$expected_free"
 
 # 3) New box 'vacation' (balance expected 0)
 $CLI new-box vacation --db-dir "$DB_DIR"
 $CLI new-box new_car --db-dir "$DB_DIR"
 cli_to_json
-assert_num_eq '.partition.vacation' 0
+assert_num_eq '.partition.vacation.amount' 0
 
 # 4) Add 30 to vacation (from free) → free-=30, vacation+=30
 $CLI add-to-balance vacation 30 --db-dir "$DB_DIR"
 cli_to_json
 expected_free=$(( expected_free - 30 ))
-assert_num_eq '.partition.free' "$expected_free"
-assert_num_eq '.partition.vacation' 30
+assert_num_eq '.partition.free.amount' "$expected_free"
+assert_num_eq '.partition.vacation.amount' 30
 
 # 5) Spend 10 from vacation → vacation=20
 $CLI spend vacation 10 --db-dir "$DB_DIR"
 cli_to_json
-assert_num_eq '.partition.vacation' 20
+assert_num_eq '.partition.vacation.amount' 20
 
 # 6) Transfer 5 vacation -> free → vacation=15, free+=5
 $CLI transfer-between-balances vacation free 5 --db-dir "$DB_DIR"
 cli_to_json
 expected_free=$(( expected_free + 5 ))
-assert_num_eq '.partition.vacation' 15
-assert_num_eq '.partition.free' "$expected_free"
+assert_num_eq '.partition.vacation.amount' 15
+assert_num_eq '.partition.free.amount' "$expected_free"
 
 # 7) Set target & recurring
 $CLI set-target vacation 200 2025-12 --db-dir "$DB_DIR"
@@ -140,7 +140,7 @@ assert_num_eq '.periodic.new_car.target' "0" "$json_out" >/dev/null
 $CLI plan-deposits --db-dir "$DB_DIR" >/dev/null
 $CLI plan-and-apply --db-dir "$DB_DIR" --amount "$expected_free"
 cli_to_json
-assert_jq '.partition.free >= 0 and .partition.vacation >= 0'
+assert_jq '.partition.free.amount >= 0 and .partition.vacation.amount >= 0'
 
 # 9) Remove recurring & target (verify cleared)
 $CLI remove-recurring new_car --db-dir "$DB_DIR"

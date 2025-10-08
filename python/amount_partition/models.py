@@ -1,6 +1,111 @@
 from dataclasses import dataclass
 from datetime import datetime
-from amount_partition.schemas import TargetResponse, PeriodicDepositResponse
+from amount_partition.schemas import TargetResponse, PeriodicDepositResponse, BalanceResponse, RegularBalanceResponse, CreditBalanceResponse, FreeBalanceResponse, VirtualBalanceResponse, InstalmentBalanceResponse
+
+class Balance:
+    type_: str = "regular"
+    schema_cls = RegularBalanceResponse
+    
+    def __init__(self, amount: int):
+        self.amount = amount
+
+    def __eq__(self, other):
+        if not isinstance(other, Balance):
+            return NotImplemented
+        return self.amount == other.amount and self.type_ == other.type_
+
+    def to_json(self) -> dict:
+        return {
+            "amount": self.amount,
+            "type": self.type_,
+        }
+    
+    def as_list(self) -> list:
+        return [self.amount, self.type_]
+    
+    def to_balance_response(self):
+        payload = {"type": self.type_, "amount": self.amount}
+        if hasattr(self, "monthly_payment"):
+            payload["monthly_payment"] = self.monthly_payment
+        return self.schema_cls(**payload)
+
+class CreditBalance(Balance):
+    type_: str = "credit"
+    schema_cls = CreditBalanceResponse
+
+class FreeBalance(Balance):
+    type_: str = "free"
+    schema_cls = FreeBalanceResponse
+
+class VirtualBalance(Balance):
+    type_: str = "virtual"
+    schema_cls = VirtualBalanceResponse
+
+class InstalmentBalance(Balance):
+    type_: str = "instalment"
+    schema_cls = InstalmentBalanceResponse
+    
+    def __init__(self, amount: int, monthly_payment: int):
+        super().__init__(amount)
+        self.monthly_payment = monthly_payment
+
+    def __eq__(self, other):
+        if not isinstance(other, InstalmentBalance):
+            return NotImplemented
+        return super().__eq__(other) and self.monthly_payment == other.monthly_payment
+
+    def pay_instalment(self) -> int:
+        """Pay the monthly instalment from the balance. Returns the amount paid."""
+        if self.amount >= self.monthly_payment:
+            self.amount -= self.monthly_payment
+            return self.monthly_payment
+        else:
+            paid = self.amount
+            self.amount = 0
+            return paid
+    
+    def to_json(self) -> dict:
+        data = super().to_json()
+        data["monthly_payment"] = self.monthly_payment
+        return data
+    
+    def as_list(self) -> list:
+        return [self.amount, self.type_, self.monthly_payment]
+    
+    def to_balance_response(self):
+        payload = {"type": self.type_, "amount": self.amount, "monthly_payment": self.monthly_payment}
+        return self.schema_cls(**payload)
+
+class BalanceFactory:
+    @staticmethod
+    def create_balance(amount: int, type_: str, *args) -> Balance:
+        if type_ == "regular":
+            return Balance(amount)
+        elif type_ == "credit":
+            return CreditBalance(amount)
+        elif type_ == "free":
+            return FreeBalance(amount)
+        elif type_ == "virtual":
+            return VirtualBalance(amount)
+        elif type_ == "instalment":
+            monthly_payment = args[0]
+            return InstalmentBalance(amount, monthly_payment)
+        else:
+            raise ValueError(f"Unknown balance type: {type_}")
+    
+    @staticmethod
+    def from_json(data: dict) -> Balance:
+        type_ = data.get("type", "regular")
+        if type_ == "regular":
+            return Balance(amount=data['amount'])
+        elif type_ == "credit":
+            return CreditBalance(amount=data['amount'])
+        elif type_ == "free":
+            return FreeBalance(amount=data['amount'])
+        elif type_ == "instalment":
+            return InstalmentBalance(amount=data['amount'], monthly_payment=data.get('monthly_payment', 0))
+        else:
+            raise ValueError(f"Unknown balance type in JSON: {type_}")
 
 @dataclass
 class Target:
@@ -78,5 +183,11 @@ class PeriodicDeposit:
         )
 
 if __name__ == "__main__":
-    target = Target(goal=1000, due=datetime(2023, 12, 31))
-    print(target.as_dict())
+    # target = Target(goal=1000, due=datetime(2023, 12, 31))
+    # print(target.as_dict())
+    balance = InstalmentBalance(amount=5000, monthly_payment=450)
+    print(balance.to_balance_response())
+    print(balance.to_json())
+    balance = BalanceFactory.from_json(balance.to_json())
+    print(balance.to_balance_response())
+    print(balance.to_json())

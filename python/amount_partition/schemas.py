@@ -1,9 +1,40 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, Literal, Union, Annotated
 
-class BalanceResponse(BaseModel):
-    name: str
+class BalanceResponseBase(BaseModel):
     amount: int
+    type: str  # Will be overridden in children
+
+    class Config:
+        extra = "forbid"
+
+class RegularBalanceResponse(BalanceResponseBase):
+    type: Literal["regular"] = "regular"
+
+class CreditBalanceResponse(BalanceResponseBase):
+    type: Literal["credit"] = "credit"
+
+class FreeBalanceResponse(BalanceResponseBase):
+    type: Literal["free"] = "free"
+    
+class VirtualBalanceResponse(BalanceResponseBase):
+    type: Literal["virtual"] = "virtual"
+
+class InstalmentBalanceResponse(BalanceResponseBase):
+    type: Literal["instalment"] = "instalment"
+    monthly_payment: int
+
+BalanceResponse = Annotated[
+    Union[
+        RegularBalanceResponse,
+        CreditBalanceResponse,
+        FreeBalanceResponse,
+        VirtualBalanceResponse,
+        InstalmentBalanceResponse,
+    ],
+    Field(discriminator="type")
+]
+
 
 class TargetResponse(BaseModel):
     name: str
@@ -17,7 +48,7 @@ class PeriodicDepositResponse(BaseModel):
 
 class DepositRequest(BaseModel):
     amount: int
-    merge_with_credit: Optional[bool] = True
+    monthly: Optional[bool] = True
 
 class SetTargetRequest(BaseModel):
     boxname: str

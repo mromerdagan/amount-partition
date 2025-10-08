@@ -60,8 +60,8 @@ class BudgetShell(cmd.Cmd):
         table.add_column("Box", style="cyan")
         table.add_column("Amount", style="magenta", justify="right")
 
-        for name, amount in balances.items():
-            table.add_row(name, f"{amount:.2f}")
+        for name, balance in balances.items():
+            table.add_row(name, f"{balance.amount:.2f}")
 
         console.print(table)
     
@@ -123,27 +123,27 @@ class BudgetShell(cmd.Cmd):
         console.print(table)   
     
     def do_deposit(self, arg):
-        "Deposit an amount into 'free'. Usage: deposit <amount> [--merge-with-credit]"
+        "Deposit an amount into 'free'. Usage: deposit <amount> [--monthly]"
         parts = arg.strip().split()
         if not parts:
-            console.print("[red]Usage: deposit <amount> [--merge-with-credit][/red]")
+            console.print("[red]Usage: deposit <amount> [--monthly][/red]")
             return
         try:
             amount = int(parts[0])
         except Exception:
-            console.print("[red]Usage: deposit <amount> [--merge-with-credit][/red]")
+            console.print("[red]Usage: deposit <amount> [--monthly][/red]")
             return
-        merge_with_credit = False
-        if len(parts) > 1 and parts[1] == "--merge-with-credit":
-            merge_with_credit = True
+        monthly = False
+        if len(parts) > 1 and parts[1] == "--monthly":
+            monthly = True
         try:
-            result = self.client.deposit(amount, merge_with_credit=merge_with_credit)
+            result = self.client.deposit(amount, monthly=monthly)
         except Exception as e:
             console.print(f"[red]Error depositing: {e}[/red]")
             return
         
         console.print(f"Deposited {amount}. New free balance: {result.get('free', '?')}")
-        if merge_with_credit:
+        if monthly:
             console.print("'credit-spent' merged into 'free'.")
 
     def do_withdraw(self, arg):

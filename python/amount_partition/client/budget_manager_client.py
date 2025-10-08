@@ -25,7 +25,7 @@ class BudgetManagerClient(ABC):
         pass
 
     @abstractmethod
-    def deposit(self, amount: int, merge_with_credit: bool = False):
+    def deposit(self, amount: int, monthly: bool = False):
         """Deposit an amount into the 'free' balance."""
         pass
 
