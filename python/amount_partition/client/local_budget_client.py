@@ -114,6 +114,11 @@ class LocalBudgetManagerClient(BudgetManagerClient):
         data = manager.plan_and_apply(skip, is_monthly, amount_to_use)
         manager.dump_data(self.db_dir)
         return data
+    
+    def new_instalment(self, instalment_name: str, from_balance: str, num_instalments: int, monthly_payment: int):
+        manager = BudgetManagerApi.from_storage(self.db_dir)
+        manager.new_instalment(instalment_name, from_balance, num_instalments, monthly_payment)
+        manager.dump_data(self.db_dir)
 
 if __name__ == "__main__":
     manager = LocalBudgetManagerClient("/tmp/partition-bp")
