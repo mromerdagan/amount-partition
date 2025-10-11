@@ -92,7 +92,12 @@ class BalanceFactory:
         elif type_ == "virtual":
             return VirtualBalance(amount)
         elif type_ == "instalment":
-            monthly_payment = args[0]
+            try:
+                monthly_payment = int(args[0])
+            except IndexError:
+                raise ValueError(f"Missing monthly_payment for instalment balance")
+            except ValueError:
+                raise ValueError(f"Invalid monthly_payment for instalment balance: {args[0]!r}")
             return InstalmentBalance(amount, monthly_payment)
         else:
             raise ValueError(f"Unknown balance type: {type_}")

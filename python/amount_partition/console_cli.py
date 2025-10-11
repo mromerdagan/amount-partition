@@ -242,6 +242,20 @@ def plan_and_apply(
     for boxname, amount in deposits_plan.items():
         typer.echo(f"  {boxname}: +{amount}")
 
+@app.command()
+def new_instalment(
+    instalment_name: str = typer.Argument(..., help="Name of the new instalment balance"),
+    from_balance: str = typer.Argument(..., help="Balance to fund the instalment from"),
+    num_instalments: int = typer.Argument(..., help="Number of instalments"),
+    monthly_payment: int = typer.Argument(..., help="Monthly payment amount"),
+    db_dir: str = typer.Option('.', '--db-dir', help="Path to the database directory")
+):
+    """Create a new instalment balance."""
+    manager = BudgetManagerApi.from_storage(db_dir)
+    manager.new_instalment(instalment_name, from_balance, num_instalments, monthly_payment)
+    manager.dump_data(db_dir)
+    typer.echo(f"Created new instalment balance '{instalment_name}' from '{from_balance}' with {num_instalments} instalments of {monthly_payment} each.")
+
 
 @app.command()
 def reserved_amount(
