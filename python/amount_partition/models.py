@@ -108,6 +108,8 @@ class BalanceFactory:
             return FreeBalance(amount=data['amount'])
         elif type_ == "instalment":
             return InstalmentBalance(amount=data['amount'], monthly_payment=data.get('monthly_payment', 0))
+        elif type_ == "virtual":
+            return VirtualBalance(amount=data['amount'])
         else:
             raise ValueError(f"Unknown balance type in JSON: {type_}")
 

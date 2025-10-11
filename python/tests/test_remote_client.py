@@ -12,13 +12,13 @@ class TestRemoteBudgetManagerClient(unittest.TestCase):
     @patch("amount_partition.client.remote_budget_client.requests.get")
     def test_get_balances(self, mock_get):
         mock_response = Mock()
-        mock_response.json.return_value = {"free":{"name": "free", "amount": 100}, "vacation": {"name": "vacation", "amount": 50}}
+        mock_response.json.return_value = {"free":{"name": "free", "amount": 100, "type": "free"}, "vacation": {"name": "vacation", "amount": 50, "type": "regular"}}
         mock_response.status_code = 200
         mock_get.return_value = mock_response
 
         result = self.client.get_balances()
-        self.assertEqual(result["free"], 100)
-        self.assertEqual(result["vacation"], 50)
+        self.assertEqual(result["free"].amount, 100)
+        self.assertEqual(result["vacation"].amount, 50)
         mock_get.assert_called_once_with("http://fake-api/balances", params={"db_dir": "/tmp/budget"})
 
     @patch("amount_partition.client.remote_budget_client.requests.post")

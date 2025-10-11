@@ -3,7 +3,7 @@ import json
 import requests
 from amount_partition.api import BudgetManagerApi
 from amount_partition.client.budget_manager_client import BudgetManagerClient
-from amount_partition.models import Target, PeriodicDeposit
+from amount_partition.models import BalanceFactory, Target, PeriodicDeposit
 from amount_partition.schemas import TargetResponse, PeriodicDepositResponse
 
 class RemoteBudgetManagerClient(BudgetManagerClient):
@@ -29,8 +29,11 @@ class RemoteBudgetManagerClient(BudgetManagerClient):
 
     def get_balances(self):
         response = requests.get(f"{self.api_url}/balances", params={"db_dir": self.db_path})
-        self._raise_for_detailed_status(response)   
-        return OrderedDict({balance_name: d["amount"] for balance_name, d in response.json().items()})
+        self._raise_for_detailed_status(response)
+        return {
+            balance_name: BalanceFactory.from_json(d)
+            for balance_name, d in response.json().items()
+        }
     
     def get_targets(self):
         response = requests.get(f"{self.api_url}/targets", params={"db_dir": self.db_path})
