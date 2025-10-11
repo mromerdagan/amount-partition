@@ -108,3 +108,8 @@ class BudgetManagerClient(ABC):
     def plan_and_apply(self, skip: str, is_monthly: bool, amount_to_use: int):
         """Plan and apply deposits for the given amount."""
         pass
+    
+    @abstractmethod
+    def new_instalment(self, instalment_name: str, from_balance: str, num_instalments: int, monthly_payment: int):
+        """Create a new instalment balance."""
+        pass

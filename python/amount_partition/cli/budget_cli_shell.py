@@ -515,8 +515,29 @@ class BudgetShell(cmd.Cmd):
         except Exception as e:
             console.print(f"[red]Error applying deposit suggestions: {e}[/red]")
             return
-
-
+    
+    def do_new_instalment(self, arg):
+        "Create a new instalment balance. Usage: new_instalment <instalment_name> <from_balance> <num_instalments> <monthly_payment>"
+        parts = arg.strip().split()
+        if len(parts) != 4:
+            console.print("[red]Usage: new_instalment <instalment_name> <from_balance> <num_instalments> <monthly_payment>[/red]")
+            return
+        instalment_name, from_balance, num_instalments, monthly_payment = parts
+        
+        # validate num_instalments and monthly_payment are integers
+        try:
+            num_instalments = int(num_instalments)
+            monthly_payment = int(monthly_payment)
+        except Exception:
+            console.print("[red]num_instalments and monthly_payment must be integers.[/red]")
+            return
+        
+        try:
+            self.client.new_instalment(instalment_name, from_balance, num_instalments, monthly_payment)
+        except Exception as e:
+            console.print(f"[red]Error creating instalment: {e}[/red]")
+            return
+        console.print(f"Created new instalment '{instalment_name}' from '{from_balance}' with {num_instalments} instalments of {monthly_payment} each.")
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Interactive Budget CLI")

@@ -180,6 +180,17 @@ class RemoteBudgetManagerClient(BudgetManagerClient):
         self._raise_for_detailed_status(response)
         payload = response.json()
         return payload.get("plan", {})
+    
+    def new_instalment(self, instalment_name: str, from_balance: str, num_instalments: int, monthly_payment: int):
+        data = {
+            "instalment_name": instalment_name,
+            "from_balance": from_balance,
+            "num_instalments": num_instalments,
+            "monthly_payment": monthly_payment
+        }
+        response = requests.post(f"{self.api_url}/new_instalment", json=data, params={"db_dir": self.db_path})
+        self._raise_for_detailed_status(response)
+        return response.json()
 
 if __name__ == "__main__":
     import json
