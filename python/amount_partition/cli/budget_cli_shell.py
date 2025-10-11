@@ -59,9 +59,22 @@ class BudgetShell(cmd.Cmd):
         table = Table(title="Balances")
         table.add_column("Box", style="cyan")
         table.add_column("Amount", style="magenta", justify="right")
+        table.add_column("Type", style="green")
+        
+        display_balance_callbacks = {
+            "free": lambda balance: "Free",
+            "credit": lambda balance: "Credit",
+            "instalment": lambda balance: f"I ({balance.monthly_payment})",
+            "virtual": lambda balance: "V",
+            "regular": lambda balance: ""
+        }
 
         for name, balance in balances.items():
-            table.add_row(name, f"{balance.amount:.2f}")
+            show_balance_func = display_balance_callbacks.get(balance.type_)
+            if not show_balance_func:
+                console.print(f"[red]Error: Missing display function for balance type '{balance.type_}'[/red]")
+                return
+            table.add_row(name, f"{balance.amount:.2f}", display_balance_callbacks.get(balance.type_, lambda b: "")(balance))
 
         console.print(table)
     
