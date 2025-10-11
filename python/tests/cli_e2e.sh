@@ -119,6 +119,12 @@ assert_num_eq '.partition.vacation.amount' 30
 $CLI spend vacation 10 --db-dir "$DB_DIR"
 cli_to_json
 assert_num_eq '.partition.vacation.amount' 20
+assert_num_eq '.partition."credit-spent".amount' 10
+$CLI deposit 1 --db-dir "$DB_DIR" --monthly
+cli_to_json
+expected_free=$(( expected_free + 1 + 10 ))
+assert_num_eq '.partition.free.amount' "$expected_free"
+assert_num_eq '.partition."credit-spent".amount' 0
 
 # 6) Transfer 5 vacation -> free → vacation=15, free+=5
 $CLI transfer-between-balances vacation free 5 --db-dir "$DB_DIR"
@@ -148,6 +154,25 @@ $CLI remove-target vacation --db-dir "$DB_DIR"
 cli_to_json
 assert_jq '.periodic | has("new_car") | not'
 assert_jq '.goals | has("vacation") | not'
+
+# 10) New instalment balance 'laptop' from free, 3 instalments of 1000 each
+$CLI deposit 3000 --db-dir "$DB_DIR" --no-monthly
+cli_to_json
+expected_free=$(( expected_free + 3000 ))
+assert_num_eq '.partition.free.amount' "$expected_free"
+
+$CLI new-instalment laptop free 3 1000 --db-dir "$DB_DIR"
+cli_to_json
+assert_num_eq '.partition.laptop.amount' 3000
+expected_free=$(( expected_free - 3000 ))
+assert_num_eq '.partition.free.amount' "$expected_free"
+
+# 11) Deposit 1 as monthly (should merge credit-spent into free)
+$CLI deposit 1 --db-dir "$DB_DIR" --monthly
+cli_to_json
+expected_free=$(( expected_free + 1 + 1000 ))
+assert_num_eq '.partition.free.amount' "$expected_free"
+assert_num_eq '.partition.laptop.amount' 2000
 
 echo "✅ CLI E2E passed"
 
