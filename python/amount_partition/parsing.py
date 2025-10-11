@@ -26,7 +26,7 @@ def parse_balance_line(line: str) -> tuple[str, Balance]:
         raise ValueError(f"Malformed line in partition file: '{line}'. Expected at least 2 columns.")
 
     if num_parts == 2:  # Support legacy format without type_
-        boxname, size = parts
+        boxname, amount = parts
         if boxname == "free":
             type_ = "free"
         elif boxname == "credit-spent":
@@ -36,14 +36,14 @@ def parse_balance_line(line: str) -> tuple[str, Balance]:
         extra_args = []
         
     else:  # num_parts >= 3
-        boxname, size, type_, *extra_args = parts
+        boxname, amount, type_, *extra_args = parts
         if type_ not in allowed_types:
             raise ValueError(
                 f"Invalid type '{type_}' in line {line!r}. "
                 f"Allowed types: {', '.join(sorted(allowed_types))}"
             )
     
-    balance = BalanceFactory.create_balance(int(size), type_, *extra_args)
+    balance = BalanceFactory.create_balance(int(amount), type_, *extra_args)
 
     return boxname, balance
 
@@ -103,6 +103,7 @@ def dump_balances_file(partition_path: pathlib.Path, balances: dict[str, Balance
     """Write the balances dict to the partition file."""
     lines = [f"{balance_name:<20}" + "".join("{:<20}".format(c) for c in balance.as_list()) for
              balance_name, balance in balances.items()]
+    lines = [l.strip() for l in lines]  # remove trailing spaces
     content = "\n".join(lines) + "\n"
     partition_path.write_text(content)
 

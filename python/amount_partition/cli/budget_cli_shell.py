@@ -62,8 +62,8 @@ class BudgetShell(cmd.Cmd):
         table.add_column("Type", style="green")
         
         display_balance_callbacks = {
-            "free": lambda balance: "Free",
-            "credit": lambda balance: "Credit",
+            "free": lambda balance: "F",
+            "credit": lambda balance: "C",
             "instalment": lambda balance: f"I ({balance.monthly_payment})",
             "virtual": lambda balance: "V",
             "regular": lambda balance: ""
@@ -103,7 +103,7 @@ class BudgetShell(cmd.Cmd):
             name = target_name
             goal = target.goal
             due = target.due.strftime("%Y-%m")
-            current_balance = balances.get(target_name, 0.0)
+            current_balance = balances.get(target_name).amount
             months_left = target.months_left(curr_month_payed)
             monthly_payment = target.monthly_payment(balance=current_balance, curr_month_payed=curr_month_payed)
             table.add_row(
@@ -129,7 +129,7 @@ class BudgetShell(cmd.Cmd):
         for name, periodic in recurring.items():
             amount = periodic.amount
             target = periodic.target
-            current_balance = balances.get(name, 0.0)
+            current_balance = balances.get(name).amount
             table.add_row(
                 str(name), f"{amount:.2f}", str(target), f"{current_balance:.2f}"
             )
