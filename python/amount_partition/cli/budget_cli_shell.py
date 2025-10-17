@@ -6,6 +6,7 @@ import sys
 import re
 from rich.console import Console
 from rich.table import Table
+import math
 
 from amount_partition.client.local_budget_client import LocalBudgetManagerClient
 from amount_partition.client.remote_budget_client import RemoteBudgetManagerClient
@@ -118,6 +119,7 @@ class BudgetShell(cmd.Cmd):
         table.add_column("Amount", style="magenta", justify="right")
         table.add_column("Target", style="green")
         table.add_column("Current Balance", style="yellow", justify="right")
+        table.add_column("Months Remaining", style="blue", justify="right")
         
         try:
             recurring = self.client.get_recurring()
@@ -130,8 +132,9 @@ class BudgetShell(cmd.Cmd):
             amount = periodic.amount
             target = periodic.target
             current_balance = balances.get(name).amount
+            months_remaining = math.ceil((periodic.target - current_balance) / periodic.amount) if current_balance < periodic.target else ""
             table.add_row(
-                str(name), f"{amount:.2f}", str(target), f"{current_balance:.2f}"
+                str(name), f"{amount:.2f}", str(target), f"{current_balance:.2f}", str(months_remaining)
             )
         console.print(table)   
     
