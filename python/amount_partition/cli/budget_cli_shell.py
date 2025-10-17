@@ -60,7 +60,7 @@ class BudgetShell(cmd.Cmd):
         table = Table(title="Balances")
         table.add_column("Box", style="cyan")
         table.add_column("Amount", style="magenta", justify="right")
-        table.add_column("Type", style="green")
+        table.add_column("Type", style="green", justify="center")
         
         display_balance_callbacks = {
             "free": lambda balance: "F",
@@ -219,8 +219,8 @@ class BudgetShell(cmd.Cmd):
             result = self.client.spend(boxname, amount, use_credit)
             console.print(f"[green]Spent {amount} from '{boxname}'[/green]")
             if use_credit:
-                console.print(f"[blue]Credit-spent balance: {result['credit-spent']}[/blue]")
-            console.print(f"New balance: {result['balance']}")
+                console.print(f"[blue]Credit-spent balance: {result['credit-spent'].amount}[/blue]")
+            console.print(f"New balance: {result['balance'].amount}")
         except Exception as e:
             console.print(f"[red]Error: {e}[/red]")
             return
