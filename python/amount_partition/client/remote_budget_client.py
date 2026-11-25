@@ -97,6 +97,12 @@ class RemoteBudgetManagerClient(BudgetManagerClient):
         response = requests.post(f"{self.api_url}/remove_box", json=data, params={"db_dir": self.db_path})
         self._raise_for_detailed_status(response)
         return response.json()
+
+    def rename_box(self, old_name: str, new_name: str):
+        data = {"old_name": old_name, "new_name": new_name}
+        response = requests.post(f"{self.api_url}/rename_box", json=data, params={"db_dir": self.db_path})
+        self._raise_for_detailed_status(response)
+        return response.json()
     
     def set_target(self, boxname: str, goal: int, due: str):
         data = {

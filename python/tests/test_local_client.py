@@ -115,9 +115,10 @@ class TestLocalBudgetManagerClient(unittest.TestCase):
             client.spend("vacation", 50, use_credit=True),
             {"balance": 250, "credit-spent": 50},
         )
+        self.assertEqual(client.rename_box("vacation", "holiday"), {"status": "ok"})
         self.assertEqual(client.withdraw(100), {"free": 600})
         self.assertEqual(
-            client.transfer_between_balances("vacation", "free", 50),
+            client.transfer_between_balances("holiday", "free", 50),
             {"from_box": 200, "to_box": 650},
         )
 

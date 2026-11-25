@@ -80,6 +80,11 @@ class BudgetManagerClient(ABC):
         pass
 
     @abstractmethod
+    def rename_box(self, old_name: str, new_name: str) -> Dict[str, str]:
+        """Rename a balance, preserving amount and related target/recurring. Returns {"status": "ok"}."""
+        pass
+
+    @abstractmethod
     def new_loan(self, amount: int, due: str) -> Dict[str, str]:
         """Create a self-loan with a negative amount and a target to repay by due date. Returns {"status": "ok"}."""
         pass

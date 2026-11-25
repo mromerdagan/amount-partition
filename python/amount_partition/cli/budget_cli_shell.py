@@ -281,6 +281,20 @@ class BudgetShell(cmd.Cmd):
             return
         # if we reach here, it means the box was removed successfully
         console.print(f"Removed box '{box}'")
+
+    def do_rename_box(self, arg):
+        "Rename a box. Usage: rename_box <old> <new>"
+        parts = arg.strip().split()
+        if len(parts) != 2:
+            console.print("[red]Usage: rename_box <old> <new>[/red]")
+            return
+        old_name, new_name = parts
+        try:
+            self.client.rename_box(old_name, new_name)
+        except Exception as e:
+            console.print(f"[red]Error renaming box '{old_name}' to '{new_name}': {e}[/red]")
+            return
+        console.print(f"Renamed box '{old_name}' to '{new_name}'")
     
     def do_set_target(self, arg):
         "Set a target for a box. Usage: set_target <box> <goal> <due> (due format: YYYY-MM)"

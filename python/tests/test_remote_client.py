@@ -143,6 +143,21 @@ class TestRemoteBudgetManagerClient(unittest.TestCase):
         )
 
     @patch("amount_partition.client.remote_budget_client.requests.post")
+    def test_rename_box(self, mock_post):
+        mock_response = Mock()
+        mock_response.json.return_value = {"status": "ok"}
+        mock_response.status_code = 200
+        mock_post.return_value = mock_response
+
+        result = self.client.rename_box("oldbox", "newbox")
+        self.assertEqual(result["status"], "ok")
+        mock_post.assert_called_once_with(
+            "http://fake-api/rename_box",
+            json={"old_name": "oldbox", "new_name": "newbox"},
+            params={"db_dir": "/tmp/budget"}
+        )
+
+    @patch("amount_partition.client.remote_budget_client.requests.post")
     def test_new_loan(self, mock_post):
         mock_response = Mock()
         mock_response.json.return_value = {"status": "ok"}

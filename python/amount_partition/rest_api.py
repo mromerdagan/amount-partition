@@ -4,7 +4,7 @@ from typing import List, Dict
 from amount_partition.api import BudgetManagerApi
 from amount_partition.models import Balance, Target, PeriodicDeposit
 from amount_partition.schemas import (
-    BalanceResponse, NewInstalmentRequest, PlanAndApplyRequest, PlanDepositsRequest, TargetResponse, PeriodicDepositResponse, DepositRequest, SetTargetRequest, RemoveTargetRequest, SetRecurringRequest, RemoveRecurringRequest, WithdrawRequest, SpendRequest, AddToBalanceRequest, TransferRequest, NewBoxRequest, RemoveBoxRequest, NewLoanRequest, CreateDbRequest
+    BalanceResponse, NewInstalmentRequest, PlanAndApplyRequest, PlanDepositsRequest, TargetResponse, PeriodicDepositResponse, DepositRequest, SetTargetRequest, RemoveTargetRequest, SetRecurringRequest, RemoveRecurringRequest, WithdrawRequest, SpendRequest, AddToBalanceRequest, TransferRequest, NewBoxRequest, RemoveBoxRequest, RenameBoxRequest, NewLoanRequest, CreateDbRequest
 )
 
 app = FastAPI()
@@ -132,6 +132,16 @@ def remove_box(req: RemoveBoxRequest, db_dir: str = "."):
     try:
         manager = get_manager(db_dir)
         manager.remove_box(req.boxname)
+        manager.dump_data(db_dir)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"status": "ok"}
+
+@app.post("/rename_box")
+def rename_box(req: RenameBoxRequest, db_dir: str = "."):
+    try:
+        manager = get_manager(db_dir)
+        manager.rename_box(req.old_name, req.new_name)
         manager.dump_data(db_dir)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

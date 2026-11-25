@@ -200,6 +200,39 @@ class TestNewBoxRemoveBox(unittest.TestCase):
         self.db.remove_box('toremove')
         self.assertNotIn('toremove', self.db._balances)
 
+    def test_rename_box(self):
+        self.db.new_box('oldname')
+        self.db.new_box('recurring_box')
+        self.db.deposit(100)
+        self.db.add_to_balance('oldname', 40)
+        self.db.set_target('oldname', 200, '2030-01')
+        self.db.set_recurring('recurring_box', 20, 200)
+
+        self.db.rename_box('oldname', 'newname')
+        self.db.rename_box('recurring_box', 'renamed_recurring')
+
+        self.assertNotIn('oldname', self.db._balances)
+        self.assertIn('newname', self.db._balances)
+        self.assertEqual(self.db._balances['newname'].amount, 40)
+        self.assertNotIn('oldname', self.db._targets)
+        self.assertIn('newname', self.db._targets)
+        self.assertEqual(self.db._targets['newname'].goal, 200)
+        self.assertNotIn('recurring_box', self.db._recurring)
+        self.assertIn('renamed_recurring', self.db._recurring)
+        self.assertEqual(self.db._recurring['renamed_recurring'].amount, 20)
+
+    def test_rename_box_rejects_reserved_and_conflicts(self):
+        self.db.new_box('vacation')
+        self.db.new_box('savings')
+        with self.assertRaises(ValueError):
+            self.db.rename_box('free', 'other')
+        with self.assertRaises(ValueError):
+            self.db.rename_box('vacation', 'credit-spent')
+        with self.assertRaises(KeyError):
+            self.db.rename_box('missing', 'other')
+        with self.assertRaises(KeyError):
+            self.db.rename_box('vacation', 'savings')
+
 class TestNewLoan(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()

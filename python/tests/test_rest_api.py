@@ -125,6 +125,23 @@ class TestDepositAndTransfer(RestApiTestCase):
         balances = response.json()
         self.assertEqual(balances["savings"]["amount"], 100)
         self.assertGreaterEqual(balances["free"]["amount"], 900)
+
+    def test_rename_box(self):
+        client.post("/new_box", json={"boxname": "savings"}, params={"db_dir": self.tempdir})
+        client.post("/deposit", json={"amount": 500}, params={"db_dir": self.tempdir})
+        client.post("/add_to_balance", json={"boxname": "savings", "amount": 200}, params={"db_dir": self.tempdir})
+
+        response = client.post(
+            "/rename_box",
+            json={"old_name": "savings", "new_name": "emergency"},
+            params={"db_dir": self.tempdir},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"status": "ok"})
+
+        balances = client.get("/balances", params={"db_dir": self.tempdir}).json()
+        self.assertNotIn("savings", balances)
+        self.assertEqual(balances["emergency"]["amount"], 200)
         
 # ---------- Instalment / loan related endpoints ----------
 

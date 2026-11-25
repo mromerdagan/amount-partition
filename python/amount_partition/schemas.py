@@ -89,6 +89,10 @@ class NewBoxRequest(BaseModel):
 class RemoveBoxRequest(BaseModel):
     boxname: str
 
+class RenameBoxRequest(BaseModel):
+    old_name: str
+    new_name: str
+
 class NewLoanRequest(BaseModel):
     amount: int
     due: str

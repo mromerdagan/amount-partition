@@ -81,6 +81,12 @@ class LocalBudgetManagerClient(BudgetManagerClient):
         manager.dump_data(self.db_dir)
         return {"status": "ok"}
 
+    def rename_box(self, old_name: str, new_name: str):
+        manager = BudgetManagerApi.from_storage(self.db_dir)
+        manager.rename_box(old_name, new_name)
+        manager.dump_data(self.db_dir)
+        return {"status": "ok"}
+
     def set_target(self, boxname: str, goal: int, due: str):
         manager = BudgetManagerApi.from_storage(self.db_dir)
         manager.set_target(boxname, goal, due)

@@ -137,6 +137,19 @@ def remove_box(
 
 
 @app.command()
+def rename_box(
+    old_name: str = typer.Argument(..., help="Current balance name"),
+    new_name: str = typer.Argument(..., help="New balance name"),
+    db_dir: str = typer.Option('.', '--db-dir', help="Path to the database directory")
+):
+    """Rename a balance, preserving amount and related target/recurring entries."""
+    manager = BudgetManagerApi.from_storage(db_dir)
+    manager.rename_box(old_name, new_name)
+    manager.dump_data(db_dir)
+    typer.echo(f"Renamed balance '{old_name}' to '{new_name}'.")
+
+
+@app.command()
 def new_loan(
     amount: int = typer.Argument(..., help="Loan amount (negative in self-loan)"),
     due: str = typer.Argument(..., help="Due date (YYYY-MM)"),
