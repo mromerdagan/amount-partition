@@ -178,10 +178,10 @@ class BudgetShell(cmd.Cmd):
         console.print(f"Withdrew {amount}. New free balance: {result['free']}")
 
     def do_add(self, arg):
-        "Add amount to a box. Usage: add_to_balance <box> <amount>"
+        "Add amount to a box. Usage: add <box> <amount>"
         parts = arg.strip().split()
         if len(parts) != 2:
-            console.print("[red]Usage: add_to_balance <box> <amount>[/red]")
+            console.print("[red]Usage: add <box> <amount>[/red]")
             return
         box, amount = parts
         try:
@@ -198,10 +198,10 @@ class BudgetShell(cmd.Cmd):
         console.print(f"Added {amount} to {box}. New balance: {result['balance']}")
 
     def do_spend(self, arg):
-        """Spend from a balance. Usage: spend <boxname> <amount> [--use-cash]"""
+        """Spend from a balance. Usage: spend <boxname> <amount> [--cash]"""
         parts = arg.strip().split()
         if len(parts) < 2:
-            console.print("[red]Usage: spend <boxname> <amount> [--use-cash][/red]")
+            console.print("[red]Usage: spend <boxname> <amount> [--cash][/red]")
             return
         
         boxname = parts[0]
@@ -212,7 +212,7 @@ class BudgetShell(cmd.Cmd):
             return
         
         use_credit = True  # default behavior
-        if len(parts) > 2 and parts[2] == "--use-cash":
+        if len(parts) > 2 and parts[2] == "--cash":
             use_credit = False
         
         try:
@@ -425,7 +425,7 @@ class BudgetShell(cmd.Cmd):
         console.print(f"Imported database from {src_file}. Result: {result}")
     
     def do_plan_deposits(self, arg):
-        "Plan deposit suggestions. Usage: plan_deposits [--skip <boxes>] [--not-monthly] [--amount-to-use <amount>]"
+        "Plan deposit suggestions. Usage: plan_deposits [--skip <boxes>] [--not-monthly] [--scale <amount>]"
         parts = arg.strip().split()
         
         # Default values
@@ -442,7 +442,7 @@ class BudgetShell(cmd.Cmd):
             elif parts[i] == "--not-monthly":
                 is_monthly = False
                 i += 1
-            elif parts[i] == "--amount-to-use" and i + 1 < len(parts):
+            elif parts[i] == "--scale" and i + 1 < len(parts):
                 try:
                     amount_to_use = int(parts[i + 1])
                 except ValueError:
@@ -450,10 +450,10 @@ class BudgetShell(cmd.Cmd):
                     return
                 i += 2
             else:
-                console.print("[red]Usage: plan_deposits [--skip <boxes>] [--not-monthly] [--amount-to-use <amount>][/red]")
+                console.print("[red]Usage: plan_deposits [--skip <boxes>] [--not-monthly] [--scale <amount>][/red]")
                 console.print("[yellow]  --skip: comma-separated list of boxes to skip[/yellow]")
                 console.print("[yellow]  --not-monthly: treat as additional deposit (not regular monthly)[/yellow]")
-                console.print("[yellow]  --amount-to-use: scale suggestions to this total amount[/yellow]")
+                console.print("[yellow]  --scale: scale suggestions to this total amount[/yellow]")
                 return
         
         try:
@@ -484,7 +484,7 @@ class BudgetShell(cmd.Cmd):
             console.print(f"[blue]Scaled to target amount: {amount_to_use}[/blue]")
     
     def do_plan_and_apply_deposits(self, arg):
-        "Plan and apply deposit suggestions. Usage: plan_and_apply_deposits [--skip <boxes>] [--not-monthly] [--amount-to-use <amount>]"
+        "Plan and apply deposit suggestions. Usage: plan_and_apply_deposits [--skip <boxes>] [--not-monthly] [--scale <amount>]"
         parts = arg.strip().split()
         
         # Default values
@@ -501,7 +501,7 @@ class BudgetShell(cmd.Cmd):
             elif parts[i] == "--not-monthly":
                 is_monthly = False
                 i += 1
-            elif parts[i] == "--amount-to-use" and i + 1 < len(parts):
+            elif parts[i] == "--scale" and i + 1 < len(parts):
                 try:
                     amount_to_use = int(parts[i + 1])
                 except ValueError:
@@ -509,10 +509,10 @@ class BudgetShell(cmd.Cmd):
                     return
                 i += 2
             else:
-                console.print("[red]Usage: plan_and_apply_deposits [--skip <boxes>] [--not-monthly] [--amount-to-use <amount>][/red]")
+                console.print("[red]Usage: plan_and_apply_deposits [--skip <boxes>] [--not-monthly] [--scale <amount>][/red]")
                 console.print("[yellow]  --skip: comma-separated list of boxes to skip[/yellow]")
                 console.print("[yellow]  --not-monthly: treat as additional deposit (not regular monthly)[/yellow]")
-                console.print("[yellow]  --amount-to-use: scale suggestions to this total amount[/yellow]")
+                console.print("[yellow]  --scale: scale suggestions to this total amount[/yellow]")
                 return
         
         try:

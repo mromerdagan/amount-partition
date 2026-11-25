@@ -144,7 +144,7 @@ assert_num_eq '.periodic.new_car.target' "0" "$json_out" >/dev/null
 
 # 8) Suggestions (may be empty depending on logic)
 $CLI plan-deposits --db-dir "$DB_DIR" >/dev/null
-$CLI plan-and-apply --db-dir "$DB_DIR" --amount "$expected_free"
+$CLI plan-and-apply --db-dir "$DB_DIR" --scale "$expected_free"
 cli_to_json
 assert_jq '.partition.free.amount >= 0 and .partition.vacation.amount >= 0'
 
