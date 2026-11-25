@@ -227,6 +227,32 @@ class BudgetManagerApi(object):
 
 		if boxname in self._recurring:
 			del(self._recurring[boxname])
+
+	def rename_box(self, old_name: str, new_name: str) -> None:
+		"""Rename a balance, preserving amount and any related target/recurring entries."""
+		reserved = {"free", "credit-spent", "total"}
+		if old_name in reserved:
+			raise ValueError(f"Cannot rename reserved box '{old_name}'")
+		if new_name in reserved:
+			raise ValueError(f"Cannot rename to reserved box name '{new_name}'")
+		if old_name not in self._balances:
+			raise KeyError(f"Key '{old_name}' is missing from database")
+		if new_name in self._balances:
+			raise KeyError(f"Key '{new_name}' is already in database")
+		if old_name == new_name:
+			return
+
+		def _rename_ordered(mapping: OrderedDict) -> OrderedDict:
+			renamed = OrderedDict()
+			for key, value in mapping.items():
+				renamed[new_name if key == old_name else key] = value
+			return renamed
+
+		self._balances = _rename_ordered(self._balances)
+		if old_name in self._targets:
+			self._targets = _rename_ordered(self._targets)
+		if old_name in self._recurring:
+			self._recurring = _rename_ordered(self._recurring)
 	
 	def new_loan(self, amount: int, due: str) -> None:
 		"""Create a self-loan balance with a negative amount and a target to repay by due date."""
