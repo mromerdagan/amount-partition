@@ -48,7 +48,7 @@ class PeriodicDepositResponse(BaseModel):
 
 class DepositRequest(BaseModel):
     amount: int
-    monthly: Optional[bool] = True
+    monthly: Optional[bool] = False
 
 class SetTargetRequest(BaseModel):
     boxname: str

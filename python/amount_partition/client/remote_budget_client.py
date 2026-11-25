@@ -1,7 +1,4 @@
-from collections import OrderedDict
-import json
 import requests
-from amount_partition.api import BudgetManagerApi
 from amount_partition.client.budget_manager_client import BudgetManagerClient
 from amount_partition.models import BalanceFactory, Target, PeriodicDeposit
 from amount_partition.schemas import TargetResponse, PeriodicDepositResponse
@@ -75,8 +72,10 @@ class RemoteBudgetManagerClient(BudgetManagerClient):
         self._raise_for_detailed_status(response)
         return response.json()
     
-    def spend(self, boxname: str, amount: int = 0, use_credit: bool = True):
-        data = {"boxname": boxname, "amount": amount, "use_credit": use_credit}
+    def spend(self, boxname: str, amount=None, use_credit: bool = True):
+        # None/0 means spend-all on the server (SpendRequest.amount defaults to 0).
+        wire_amount = 0 if amount is None else amount
+        data = {"boxname": boxname, "amount": wire_amount, "use_credit": use_credit}
         response = requests.post(f"{self.api_url}/spend", json=data, params={"db_dir": self.db_path})
         self._raise_for_detailed_status(response)
         return response.json()
@@ -149,9 +148,8 @@ class RemoteBudgetManagerClient(BudgetManagerClient):
     def export_json(self):
         params = {"db_dir": self.db_path}
         response = requests.get(f"{self.api_url}/export_json", params=params)
-        response.raise_for_status()
+        self._raise_for_detailed_status(response)
         return response.json()
-        return {"status": "exported", "file": to_file}
 
     def import_json(self, data: dict):
         response = requests.post(f"{self.api_url}/import_json", json=data, params={"db_dir": self.db_path})
