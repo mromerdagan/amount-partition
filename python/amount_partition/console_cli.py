@@ -73,7 +73,7 @@ def withdraw(
 def spend(
     boxname: str = typer.Argument(..., help="Box to spend from"),
     amount: int = typer.Argument(0, help="Amount to spend (0 empties box)"),
-    use_cash: bool = typer.Option(False, help="Don't add to credit-spent"),
+    use_cash: bool = typer.Option(False, "--cash", help="Don't add to credit-spent"),
     db_dir: str = typer.Option('.', '--db-dir', help="Path to the database directory")
 ):
     """Spend an amount from a balance. By default adds to credit-spent."""
@@ -205,7 +205,7 @@ def remove_recurring(
 def plan_deposits(
     skip: str = typer.Option('', '--skip', help="Comma-separated balance names to skip"),
     is_monthly: bool = typer.Option(True, '--is-monthly/--not-monthly', help="True for regular monthly deposit, False for additional deposits"),
-    amount_to_use: int = typer.Option(0, '--amount', help="Amount to scale deposits plan to (0 for no normalization)"),
+    amount_to_use: int = typer.Option(0, '--scale', help="Amount to scale deposits plan to (0 for no normalization)"),
     db_dir: str = typer.Option('.', '--db-dir', help="Path to the database directory")
 ):
     """Suggest deposit amounts for each balance to meet targets and recurring deposits."""
@@ -229,7 +229,7 @@ def plan_deposits(
 def plan_and_apply(
     skip: str = typer.Option('', '--skip', help="Comma-separated balance names to skip"),
     is_monthly: bool = typer.Option(True, '--is-monthly/--not-monthly', help="True for regular monthly deposit, False for additional deposits"),
-    amount_to_use: int = typer.Option(0, '--amount', help="Amount to scale deposits plan to (0 for no normalization)"),
+    amount_to_use: int = typer.Option(0, '--scale', help="Amount to scale deposits plan to (0 for no normalization)"),
     db_dir: str = typer.Option('.', '--db-dir', help="Path to the database directory")
 ):
     """Generate and apply deposits plan to the balances."""
