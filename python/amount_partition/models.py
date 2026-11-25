@@ -1,6 +1,17 @@
+import math
 from dataclasses import dataclass
 from datetime import datetime
 from amount_partition.schemas import TargetResponse, PeriodicDepositResponse, BalanceResponse, RegularBalanceResponse, CreditBalanceResponse, FreeBalanceResponse, VirtualBalanceResponse, InstalmentBalanceResponse
+
+
+def round_amount(value: float) -> int:
+    """Convert a fractional money amount to an int.
+
+    Always uses ceil so goals / required deposits are never underfunded.
+    """
+    if value <= 0:
+        return 0
+    return math.ceil(value)
 
 class Balance:
     type_: str = "regular"
@@ -155,11 +166,11 @@ class Target:
         months = (self.due.year - today_.year) * 12 + (self.due.month - today_.month)
         return max(0, months - (1 if curr_month_payed else 0))
 
-    def monthly_payment(self, balance: float, curr_month_payed: bool = False) -> float:
+    def monthly_payment(self, balance: int, curr_month_payed: bool = False) -> int:
         months = self.months_left(curr_month_payed)
         if months == 0:
-            return 0.0
-        return (self.goal - balance) / months
+            return 0
+        return round_amount((self.goal - balance) / months)
 
 @dataclass
 class PeriodicDeposit:

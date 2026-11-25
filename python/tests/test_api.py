@@ -252,6 +252,27 @@ class TestSuggestDepositsApplySuggestion(unittest.TestCase):
         self.assertIn('box2', deposits_plan)
         self.assertTrue(deposits_plan['box1'] > 0)
         self.assertTrue(deposits_plan['box2'] > 0)
+        # All suggested amounts must be ints (no float leakage from monthly_payment).
+        for amount in deposits_plan.values():
+            self.assertIsInstance(amount, int)
+
+    def test_plan_deposits_ceils_uneven_monthly_payment(self):
+        # 100 remaining over 3 months -> ceil(100/3) = 34 (int), not 33.333...
+        from datetime import datetime
+        from amount_partition.models import Target, round_amount
+
+        self.assertEqual(round_amount(100 / 3), 34)
+        self.assertIsInstance(round_amount(100 / 3), int)
+
+        today = datetime.today()
+        month = today.month + 3
+        year = today.year + (month - 1) // 12
+        month = (month - 1) % 12 + 1
+        target = Target(goal=100, due=datetime(year, month, 1))
+        self.assertEqual(target.months_left(False), 3)
+        payment = target.monthly_payment(balance=0, curr_month_payed=False)
+        self.assertEqual(payment, 34)
+        self.assertIsInstance(payment, int)
 
     def test_apply_deposit_plan(self):
         deposits_plan = self.db.plan_deposits()
@@ -262,6 +283,8 @@ class TestSuggestDepositsApplySuggestion(unittest.TestCase):
         # 'free' should decrease by the sum
         self.assertEqual(self.db._balances['free'].amount, 
                         1000 - deposits_plan['box1'] - deposits_plan['box2'])
+        self.assertIsInstance(self.db._balances['box1'].amount, int)
+        self.assertIsInstance(self.db._balances['free'].amount, int)
 
 
 class TestToJson(unittest.TestCase):
