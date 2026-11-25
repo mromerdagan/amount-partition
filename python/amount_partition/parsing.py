@@ -101,9 +101,11 @@ def parse_recurring_file(recurring_path: pathlib.Path) -> dict[str, PeriodicDepo
 
 def dump_balances_file(partition_path: pathlib.Path, balances: dict[str, Balance]) -> None:
     """Write the balances dict to the partition file."""
-    lines = [f"{balance_name:<20}" + "".join("{:<20}".format(c) for c in balance.as_list()) for
-             balance_name, balance in balances.items()]
-    lines = [l.strip() for l in lines]  # remove trailing spaces
+    name_width = max((len(name) for name in balances), default=0) + 2
+    lines = [
+        (f"{balance_name:<{name_width}}" + "".join(f"{c:<20}" for c in balance.as_list())).rstrip()
+        for balance_name, balance in balances.items()
+    ]
     content = "\n".join(lines) + "\n"
     partition_path.write_text(content)
 

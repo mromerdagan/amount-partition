@@ -173,6 +173,26 @@ class TestNewBoxRemoveBox(unittest.TestCase):
         self.db.new_box('newbox')
         self.assertIn('newbox', self.db._balances)
 
+    def test_new_box_long_name_roundtrip(self):
+        # Dump width follows the longest name; long names must stay separated from amount.
+        long_name = 'omer-dagan-exemption'
+        short_name = 'a'
+        self.db.new_box(long_name)
+        self.db.new_box(short_name)
+        self.db.dump_data(self.tempdir)
+
+        lines = Path(self.tempdir).joinpath('partition').read_text().splitlines()
+        long_line = next(line for line in lines if line.startswith(long_name))
+        short_line = next(line for line in lines if line.startswith(f'{short_name} '))
+        self.assertRegex(long_line, rf'^{long_name}\s+0\b')
+        # Amounts align to the same column for short and long names.
+        self.assertEqual(long_line.index('0'), short_line.index('0'))
+
+        reloaded = BudgetManagerApi.from_storage(self.tempdir)
+        self.assertIn(long_name, reloaded._balances)
+        self.assertEqual(reloaded._balances[long_name].amount, 0)
+        self.assertIn(long_name, reloaded.list_balances())
+
     def test_remove_box(self):
         self.db.new_box('toremove')
         self.db.deposit(100)
