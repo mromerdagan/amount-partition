@@ -103,5 +103,27 @@ class TestLocalBudgetManagerClient(unittest.TestCase):
 
         self.assertEqual(plan, expected)
 
+    def test_mutation_return_shapes(self):
+        client = LocalBudgetManagerClient(self.db_path1)
+        created = client.create_db(self.db_path1)
+        self.assertEqual(created, {"status": "created", "location": self.db_path1})
+
+        self.assertEqual(client.new_box("vacation"), {"status": "ok"})
+        self.assertEqual(client.deposit(1000), {"free": 1000})
+        self.assertEqual(client.add_to_balance("vacation", 300), {"balance": 300, "free": 700})
+        self.assertEqual(
+            client.spend("vacation", 50, use_credit=True),
+            {"balance": 250, "credit-spent": 50},
+        )
+        self.assertEqual(client.withdraw(100), {"free": 600})
+        self.assertEqual(
+            client.transfer_between_balances("vacation", "free", 50),
+            {"from_box": 200, "to_box": 650},
+        )
+
+        exported = client.export_json()
+        imported = client.import_json(exported)
+        self.assertEqual(imported, {"status": "imported", "db_dir": self.db_path1})
+
 if __name__ == "__main__":
     unittest.main()

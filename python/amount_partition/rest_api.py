@@ -64,7 +64,7 @@ def deposit(req: DepositRequest, db_dir: str = "."):
         manager = get_manager(db_dir)
         manager.deposit(req.amount, monthly=req.monthly)
         manager.dump_data(db_dir)
-        return {"free": manager.balances["free"]}
+        return {"free": manager.balances["free"].amount}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -74,7 +74,7 @@ def withdraw(req: WithdrawRequest, db_dir: str = "."):
         manager = get_manager(db_dir)
         manager.withdraw(req.amount)
         manager.dump_data(db_dir)
-        return {"free": manager.balances["free"]}
+        return {"free": manager.balances["free"].amount}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -84,7 +84,10 @@ def add_to_balance(req: AddToBalanceRequest, db_dir: str = "."):
         manager = get_manager(db_dir)
         manager.add_to_balance(req.boxname, req.amount)
         manager.dump_data(db_dir)
-        return {"balance": manager.balances[req.boxname], "free": manager.balances["free"]}
+        return {
+            "balance": manager.balances[req.boxname].amount,
+            "free": manager.balances["free"].amount,
+        }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -94,7 +97,10 @@ def spend(req: SpendRequest, db_dir: str = "."):
         manager = get_manager(db_dir)
         manager.spend(req.boxname, req.amount, req.use_credit)
         manager.dump_data(db_dir)
-        return {"balance": manager.balances.get(req.boxname, 0), "credit-spent": manager.balances.get("credit-spent", 0)}
+        return {
+            "balance": manager.balances[req.boxname].amount,
+            "credit-spent": manager.balances["credit-spent"].amount,
+        }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -104,7 +110,10 @@ def transfer_between_balances(req: TransferRequest, db_dir: str = "."):
         manager = get_manager(db_dir)
         manager.transfer_between_balances(req.from_box, req.to_box, req.amount)
         manager.dump_data(db_dir)
-        return {"from_box": manager.balances[req.from_box], "to_box": manager.balances[req.to_box]}
+        return {
+            "from_box": manager.balances[req.from_box].amount,
+            "to_box": manager.balances[req.to_box].amount,
+        }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

@@ -158,7 +158,7 @@ class BudgetShell(cmd.Cmd):
             console.print(f"[red]Error depositing: {e}[/red]")
             return
         
-        console.print(f"Deposited {amount}. New free balance: {result.get('free', '?')}")
+        console.print(f"Deposited {amount}. New free balance: {result['free']}")
         if monthly:
             console.print("'credit-spent' merged into 'free'.")
 
@@ -175,7 +175,7 @@ class BudgetShell(cmd.Cmd):
         except Exception as e:
             console.print(f"[red]Error withdrawing: {e}[/red]")
             return
-        console.print(f"Withdrew {amount}. New free balance: {result.get('free', '?')}")
+        console.print(f"Withdrew {amount}. New free balance: {result['free']}")
 
     def do_add(self, arg):
         "Add amount to a box. Usage: add_to_balance <box> <amount>"
@@ -195,7 +195,7 @@ class BudgetShell(cmd.Cmd):
         except Exception as e:
             console.print(f"[red]Error adding to balance: {e}[/red]")
             return
-        console.print(f"Added {amount} to {box}. New balance: {result.get('balance', '?')}")
+        console.print(f"Added {amount} to {box}. New balance: {result['balance']}")
 
     def do_spend(self, arg):
         """Spend from a balance. Usage: spend <boxname> <amount> [--use-cash]"""
@@ -219,8 +219,8 @@ class BudgetShell(cmd.Cmd):
             result = self.client.spend(boxname, amount, use_credit)
             console.print(f"[green]Spent {amount} from '{boxname}'[/green]")
             if use_credit:
-                console.print(f"[blue]Credit-spent balance: {result['credit-spent'].amount}[/blue]")
-            console.print(f"New balance: {result['balance'].amount}")
+                console.print(f"[blue]Credit-spent balance: {result['credit-spent']}[/blue]")
+            console.print(f"New balance: {result['balance']}")
         except Exception as e:
             console.print(f"[red]Error: {e}[/red]")
             return
@@ -246,7 +246,10 @@ class BudgetShell(cmd.Cmd):
         except Exception as e:
             console.print(f"[red]Error transferring: {e}[/red]")
             return
-        console.print(f"Transferred {amount} from {from_box} to {to_box}.")
+        console.print(
+            f"Transferred {amount} from {from_box} to {to_box}. "
+            f"New balances: {from_box}={result['from_box']}, {to_box}={result['to_box']}."
+        )
 
     def do_new_box(self, arg):
         "Create a new box. Usage: new_box <box>"
@@ -470,7 +473,6 @@ class BudgetShell(cmd.Cmd):
         
         total_suggested = 0
         for box, amount in plan.items():
-            print(box, amount)
             amount = int(amount)
             table.add_row(box, str(amount))
             total_suggested += amount
@@ -514,10 +516,27 @@ class BudgetShell(cmd.Cmd):
                 return
         
         try:
-            result = self.client.plan_and_apply(skip=skip, is_monthly=is_monthly, amount_to_use=amount_to_use)
+            plan = self.client.plan_and_apply(skip=skip, is_monthly=is_monthly, amount_to_use=amount_to_use)
         except Exception as e:
             console.print(f"[red]Error applying deposit suggestions: {e}[/red]")
             return
+
+        if not plan:
+            console.print("[yellow]No deposit suggestions applied.[/yellow]")
+            return
+
+        table = Table(title="Applied Deposits")
+        table.add_column("Box", style="cyan")
+        table.add_column("Amount", style="magenta", justify="right")
+
+        total_applied = 0
+        for box, amount in plan.items():
+            amount = int(amount)
+            table.add_row(box, str(amount))
+            total_applied += amount
+
+        console.print(table)
+        console.print(f"\n[bold]Total applied: {total_applied}[/bold]")
     
     def do_new_instalment(self, arg):
         "Create a new instalment balance. Usage: new_instalment <instalment_name> <from_balance> <num_instalments> <monthly_payment>"

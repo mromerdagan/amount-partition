@@ -67,15 +67,49 @@ class TestDepositAndTransfer(RestApiTestCase):
     """Tests for deposit, transfer, and money movement endpoints."""
 
     def test_deposit_increases_free_balance(self):
-        """POST /deposit increases free balance amount."""
+        """POST /deposit increases free balance amount and returns int snapshot."""
         response = client.post("/deposit", json={"amount": 500}, params={"db_dir": self.tempdir})
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"free": 500})
 
         response = client.get("/balances", params={"db_dir": self.tempdir})
         balances = response.json()
         free = balances.get("free")
         self.assertIsNotNone(free)
         self.assertGreaterEqual(free["amount"], 500)
+
+    def test_withdraw_returns_int_free(self):
+        client.post("/deposit", json={"amount": 500}, params={"db_dir": self.tempdir})
+        response = client.post("/withdraw", json={"amount": 200}, params={"db_dir": self.tempdir})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"free": 300})
+
+    def test_add_to_balance_returns_int_snapshots(self):
+        client.post("/deposit", json={"amount": 1000}, params={"db_dir": self.tempdir})
+        client.post("/new_box", json={"boxname": "savings"}, params={"db_dir": self.tempdir})
+        response = client.post(
+            "/add_to_balance",
+            json={"boxname": "savings", "amount": 300},
+            params={"db_dir": self.tempdir},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"balance": 300, "free": 700})
+
+    def test_spend_returns_int_snapshots(self):
+        client.post("/deposit", json={"amount": 500}, params={"db_dir": self.tempdir})
+        client.post("/new_box", json={"boxname": "vacation"}, params={"db_dir": self.tempdir})
+        client.post(
+            "/add_to_balance",
+            json={"boxname": "vacation", "amount": 200},
+            params={"db_dir": self.tempdir},
+        )
+        response = client.post(
+            "/spend",
+            json={"boxname": "vacation", "amount": 50, "use_credit": True},
+            params={"db_dir": self.tempdir},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"balance": 150, "credit-spent": 50})
     
     def test_transfer_moves_funds_between_balances(self):
         """POST /transfer_between_balances moves funds correctly."""
@@ -85,6 +119,7 @@ class TestDepositAndTransfer(RestApiTestCase):
 
         response = client.post("/transfer_between_balances", json={"from_box": "savings", "to_box": "free", "amount": 200}, params={"db_dir": self.tempdir})
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"from_box": 100, "to_box": 900})
 
         response = client.get("/balances", params={"db_dir": self.tempdir})
         balances = response.json()

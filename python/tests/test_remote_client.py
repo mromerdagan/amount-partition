@@ -186,6 +186,55 @@ class TestRemoteBudgetManagerClient(unittest.TestCase):
             params={"db_dir": "/tmp/budget"}
         )
 
+    @patch("amount_partition.client.remote_budget_client.requests.post")
+    def test_spend_none_maps_to_zero(self, mock_post):
+        mock_response = Mock()
+        mock_response.json.return_value = {"balance": 0, "credit-spent": 100}
+        mock_response.status_code = 200
+        mock_post.return_value = mock_response
+
+        result = self.client.spend("vacation")
+        self.assertEqual(result["credit-spent"], 100)
+        mock_post.assert_called_once_with(
+            "http://fake-api/spend",
+            json={"boxname": "vacation", "amount": 0, "use_credit": True},
+            params={"db_dir": "/tmp/budget"}
+        )
+
+    @patch("amount_partition.client.remote_budget_client.requests.post")
+    def test_plan_deposits_unwraps_plan(self, mock_post):
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "status": "ok",
+            "plan": {"vacation": 750, "new-car": 100},
+            "total": 850,
+        }
+        mock_response.status_code = 200
+        mock_post.return_value = mock_response
+
+        result = self.client.plan_deposits("", True, 0)
+        self.assertEqual(result, {"vacation": 750, "new-car": 100})
+        mock_post.assert_called_once_with(
+            "http://fake-api/plan_deposits",
+            json={"skip": "", "is_monthly": True, "amount_to_use": 0},
+            params={"db_dir": "/tmp/budget"}
+        )
+
+    @patch("amount_partition.client.remote_budget_client.requests.get")
+    def test_export_json(self, mock_get):
+        payload = {"partition": {"free": {"amount": 0, "type": "free"}}, "goals": {}, "periodic": {}}
+        mock_response = Mock()
+        mock_response.json.return_value = payload
+        mock_response.status_code = 200
+        mock_get.return_value = mock_response
+
+        result = self.client.export_json()
+        self.assertEqual(result, payload)
+        mock_get.assert_called_once_with(
+            "http://fake-api/export_json",
+            params={"db_dir": "/tmp/budget"}
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
