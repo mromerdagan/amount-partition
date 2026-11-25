@@ -6,10 +6,10 @@ import sys
 import re
 from rich.console import Console
 from rich.table import Table
-import math
 
 from amount_partition.client.local_budget_client import LocalBudgetManagerClient
 from amount_partition.client.remote_budget_client import RemoteBudgetManagerClient
+from amount_partition.models import round_amount
 
 console = Console()
 
@@ -75,7 +75,7 @@ class BudgetShell(cmd.Cmd):
             if not show_balance_func:
                 console.print(f"[red]Error: Missing display function for balance type '{balance.type_}'[/red]")
                 return
-            table.add_row(name, f"{balance.amount:.2f}", display_balance_callbacks.get(balance.type_, lambda b: "")(balance))
+            table.add_row(name, str(balance.amount), display_balance_callbacks.get(balance.type_, lambda b: "")(balance))
 
         console.print(table)
     
@@ -108,7 +108,7 @@ class BudgetShell(cmd.Cmd):
             months_left = target.months_left(curr_month_payed)
             monthly_payment = target.monthly_payment(balance=current_balance, curr_month_payed=curr_month_payed)
             table.add_row(
-                str(name), str(goal), str(due), str(current_balance), str(months_left), f"{monthly_payment:.2f}" if isinstance(monthly_payment, float) else str(monthly_payment)
+                str(name), str(goal), str(due), str(current_balance), str(months_left), str(monthly_payment)
             )
         console.print(table)
     
@@ -132,9 +132,12 @@ class BudgetShell(cmd.Cmd):
             amount = periodic.amount
             target = periodic.target
             current_balance = balances.get(name).amount
-            months_remaining = math.ceil((periodic.target - current_balance) / periodic.amount) if current_balance < periodic.target else ""
+            months_remaining = (
+                round_amount((periodic.target - current_balance) / periodic.amount)
+                if current_balance < periodic.target else ""
+            )
             table.add_row(
-                str(name), f"{amount:.2f}", str(target), f"{current_balance:.2f}", str(months_remaining)
+                str(name), str(amount), str(target), str(current_balance), str(months_remaining)
             )
         console.print(table)   
     

@@ -310,12 +310,13 @@ class BudgetManagerApi(object):
 
 		scale = target_amount / total
 
-		# First pass: floors and fractional parts
+		# First pass: floors and fractional parts (Hamilton / largest-remainder).
+		# Floor here is required so remainders can be distributed to hit target_amount exactly.
 		floors: dict[str, int] = {}
 		remainders: list[tuple[float, int, str]] = []  # (remainder, -orig_amount, key) for deterministic sorting
 		for key, orig in plan.items():
 			exact = orig * scale
-			f = int(exact // 1)  # floor
+			f = math.floor(exact)
 			r = exact - f
 			floors[key] = f
 			# tie-breaker: larger original amount first, then lexicographic key
@@ -368,7 +369,7 @@ class BudgetManagerApi(object):
 				continue
 			curr_box_balance = self._balances.get(boxname, Balance(0)).amount
 			box_suggestion = target.monthly_payment(balance=curr_box_balance, curr_month_payed=not is_monthly)
-			if box_suggestion == 0: # Target is already reached
+			if box_suggestion <= 0:  # Target is already reached
 				continue
 			deposit_plan[boxname] = box_suggestion
 
